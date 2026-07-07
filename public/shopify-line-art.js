@@ -1,0 +1,1033 @@
+(() => {
+  const mount = document.getElementById('line-art-customizer-mount');
+  if (!mount || mount.dataset.initialized === 'true') return;
+  mount.dataset.initialized = 'true';
+  mount.innerHTML = "<div class=\"line-art-customizer-root\"><div class=\"app-container\">\n    <header class=\"app-header\">\n      <h1>Exact Line Art Studio</h1>\n      <p class=\"app-subtitle\">Create premium custom line art and design stunning mockups in a few simple steps.</p>\n    </header>\n\n    <!-- Top progress removed; steps reveal progressively on the same page -->\n\n    <!-- Main Wizard Content panels -->\n    <div class=\"wizard-content-container\">\n\n      <!-- STEP 1: Upload -->\n      <div class=\"step-content active\" id=\"step-pane-1\">\n        <div class=\"glass-panel upload-step-layout\">\n\n          <div class=\"upload-zone\" id=\"drop-zone\">\n            <svg class=\"upload-icon\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"1.5\">\n              <path stroke-linecap=\"round\" stroke-linejoin=\"round\"\n                d=\"M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z\" />\n            </svg>\n            <div class=\"upload-text\" id=\"upload-status-text\">Drag & drop photo here</div>\n            <div class=\"upload-subtext\">Supports PNG, JPEG, WEBP up to 10MB</div>\n            <button class=\"btn btn-secondary\" onclick=\"triggerFileSelect()\">Browse Files</button>\n            <input type=\"file\" id=\"file-input\" accept=\"image/png, image/jpeg, image/webp\" class=\"hidden\">\n          </div>\n\n          <div class=\"preview-card hidden\" id=\"upload-preview-card\">\n            <img id=\"upload-preview\" src=\"\" alt=\"Source preview\">\n            <div class=\"preview-card-info\" id=\"preview-filename\">image.jpg</div>\n          </div>\n\n          <div class=\"button-row\" style=\"justify-content: flex-end;\">\n            <button class=\"btn btn-primary\" id=\"btn-process-image\" disabled onclick=\"processSourceImage()\">\n              Generate Line Arts\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M13 5l7 7-7 7M5 5l7 7-7 7\" />\n              </svg>\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 2: Style Selection -->\n      <div class=\"step-content locked\" id=\"step-pane-2\">\n        <div class=\"glass-panel\">\n          <h2 style=\"font-family:'Montserrat',sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 24px;\">\n            Select Line Art Variant</h2>\n\n          <div class=\"variants-grid\" id=\"variants-container\">\n            <!-- Dynamic Variant Cards will go here -->\n          </div>\n\n          <div class=\"button-row\">\n            <button class=\"btn btn-secondary\" onclick=\"navigateToStep(1)\">\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M11 19l-7-7 7-7M20 19l-7-7 7-7\" />\n              </svg>\n              Back to Upload\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 3: Customize Typography & Colors -->\n      <div class=\"step-content locked\" id=\"step-pane-3\">\n        <div class=\"glass-panel\">\n          <div class=\"customize-layout\">\n\n            <!-- Left Workspace Preview -->\n            <div class=\"canvas-panel\">\n              <div class=\"svg-artwork-container checkerboard-bg\" id=\"svg-container\">\n\n                <!-- Main Interactive SVG -->\n                <svg id=\"artwork-svg\" viewBox=\"0 0 500 500\" width=\"100%\" height=\"100%\"\n                  xmlns=\"http://www.w3.org/2000/svg\">\n                  <defs>\n                    <!-- Font styles imported for SVG rendering context inside canvas -->\n                    <style>\n                      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Montserrat:wght@600;700&family=Outfit:wght@500;700&family=Playfair+Display:ital,wght@0,600;1,600&family=Rochester&display=swap');\n\n                      .svg-text-above,\n                      .svg-text-below {\n                        text-anchor: middle;\n                        user-select: none;\n                      }\n                    </style>\n                  </defs>\n                  <!-- Background rect for high-res clean renders -->\n                  <rect width=\"500\" height=\"500\" fill=\"none\" id=\"svg-bg-rect\" />\n\n                  <!-- Selected Transparent Line Art Image -->\n                  <image id=\"svg-image-element\" x=\"120\" y=\"120\" width=\"260\" height=\"260\"\n                    preserveAspectRatio=\"xMidYMid meet\" />\n\n                  <!-- Curved Path Definitions -->\n                  <path id=\"above-text-path\" fill=\"none\" stroke=\"none\" />\n                  <path id=\"below-text-path\" fill=\"none\" stroke=\"none\" />\n\n                  <!-- Text Elements -->\n                  <g id=\"above-text-group\"></g>\n                  <g id=\"below-text-group\"></g>\n                </svg>\n\n              </div>\n\n              <div class=\"preview-theme-toggle\">\n                <button class=\"theme-toggle-btn active\" id=\"btn-theme-transparent\"\n                  onclick=\"setPreviewBg('transparent')\">Transparent Grid</button>\n                <button class=\"theme-toggle-btn\" id=\"btn-theme-white\" onclick=\"setPreviewBg('white')\">Solid\n                  White</button>\n              </div>\n            </div>\n\n            <!-- Right Controls Card -->\n            <div class=\"controls-panel\">\n\n              <!-- Typography Font Family -->\n              <div class=\"control-group\">\n                <label class=\"control-label\">Typography Style</label>\n                <select class=\"select-field\" id=\"font-family-select\" onchange=\"updateSvgLayout()\">\n                  <option value=\"'Outfit', sans-serif\">Outfit (Modern Geometric)</option>\n                  <option value=\"'Montserrat', sans-serif\">Montserrat (Bold Modern)</option>\n                  <option value=\"'Playfair Display', serif\">Playfair Display (Elegant Serif)</option>\n                  <option value=\"'Cinzel', serif\">Cinzel (Roman Calligraphy)</option>\n                  <option value=\"'Rochester', cursive\">Rochester (Classic Script)</option>\n                </select>\n              </div>\n\n              <!-- Size Selector -->\n              <div class=\"control-group\">\n                <label class=\"control-label\">Size</label>\n                <div class=\"size-selector\" style=\"margin-top:8px;\">\n                  <button class=\"size-option\" id=\"size-m\" onclick=\"setSize('m')\">M - 4 in</button>\n                  <button class=\"size-option active\" id=\"size-l\" onclick=\"setSize('l')\">L - 6 in</button>\n                  <button class=\"size-option\" id=\"size-xl\" onclick=\"setSize('xl')\">XL - 8 in</button>\n                  <button class=\"size-option\" id=\"size-xxl\" onclick=\"setSize('xxl')\">XXL - 10 in</button>\n                </div>\n              </div>\n\n              <!-- Text Arc Radius Slider -->\n              <div class=\"control-group\" id=\"radius-control-group\">\n                <label class=\"control-label\">\n                  Text Wrap Diameter\n                  <span class=\"value\" id=\"val-radius-slider\">310px</span>\n                </label>\n                <input type=\"range\" class=\"range-slider\" id=\"radius-slider\" min=\"125\" max=\"210\" value=\"155\"\n                  oninput=\"updateSvgLayout()\">\n              </div>\n\n              <!-- Above Text Customizer -->\n              <div style=\"border-top: 1px solid var(--border-color); padding-top: 20px;\" class=\"control-group\">\n                <label class=\"control-label\">Above Text (Optional)</label>\n                <input type=\"text\" class=\"input-field\" id=\"above-text-input\" placeholder=\"Type text here...\"\n                  oninput=\"updateSvgLayout()\">\n\n                <div class=\"toggle-row\" id=\"above-curve-toggle-row\">\n                  <div class=\"toggle-info\">\n                    <span class=\"toggle-name\">Curve Above Text</span>\n                    <span class=\"toggle-desc\">Wraps text over the top circle arc</span>\n                  </div>\n                  <label class=\"switch\">\n                    <input type=\"checkbox\" id=\"above-curved-toggle\" checked\n                      onchange=\"toggleRadiusControl(); updateSvgLayout();\">\n                    <span class=\"slider-toggle\"></span>\n                  </label>\n                </div>\n\n                <div class=\"control-group\" style=\"margin-top: 8px;\">\n                  <label class=\"control-label\">\n                    Above Font Size\n                    <span class=\"value\" id=\"val-above-size\">24px</span>\n                  </label>\n                  <input type=\"range\" class=\"range-slider\" id=\"above-size-slider\" min=\"14\" max=\"44\" value=\"24\"\n                    oninput=\"updateSvgLayout()\">\n                </div>\n              </div>\n\n              <!-- Below Text Customizer -->\n              <div style=\"border-top: 1px solid var(--border-color); padding-top: 20px;\" class=\"control-group\">\n                <label class=\"control-label\">Below Text (Optional)</label>\n                <input type=\"text\" class=\"input-field\" id=\"below-text-input\" placeholder=\"Type text here...\"\n                  oninput=\"updateSvgLayout()\">\n\n                <div class=\"toggle-row\" id=\"below-curve-toggle-row\">\n                  <div class=\"toggle-info\">\n                    <span class=\"toggle-name\">Curve Below Text</span>\n                    <span class=\"toggle-desc\">Wraps text under the bottom circle arc</span>\n                  </div>\n                  <label class=\"switch\">\n                    <input type=\"checkbox\" id=\"below-curved-toggle\" checked\n                      onchange=\"toggleRadiusControl(); updateSvgLayout();\">\n                    <span class=\"slider-toggle\"></span>\n                  </label>\n                </div>\n\n                <div class=\"control-group\" style=\"margin-top: 8px;\">\n                  <label class=\"control-label\">\n                    Below Font Size\n                    <span class=\"value\" id=\"val-below-size\">24px</span>\n                  </label>\n                  <input type=\"range\" class=\"range-slider\" id=\"below-size-slider\" min=\"14\" max=\"44\" value=\"24\"\n                    oninput=\"updateSvgLayout()\">\n                </div>\n              </div>\n\n              <div class=\"button-row\">\n                <button class=\"btn btn-secondary\" onclick=\"navigateToStep(2)\">Back to Styles</button>\n                <button class=\"btn btn-primary\" onclick=\"proceedToMockups()\">\n                  Apply to Mockups\n                  <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                    stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                    <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 5l7 7-7 7\" />\n                  </svg>\n                </button>\n              </div>\n\n            </div>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 4: Product Mockup previews & Export -->\n      <div class=\"step-content locked\" id=\"step-pane-4\">\n        <div class=\"glass-panel\">\n          <h2 style=\"font-family:'Montserrat',sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 24px;\">Your\n            Product Mockups</h2>\n\n          <div class=\"mockups-grid\" id=\"mockups-container\">\n            <!-- Mockup cards loaded dynamically -->\n          </div>\n\n          <div class=\"export-options-bar\">\n            <button class=\"btn btn-primary\" onclick=\"restartWorkflow()\">\n              Start New Design\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\"\n                  d=\"M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18\" />\n              </svg>\n            </button>\n          </div>\n\n          <div class=\"button-row\" style=\"margin-top: 40px;\">\n            <button class=\"btn btn-secondary\" onclick=\"navigateToStep(3)\">Back to Customizer</button>\n          </div>\n        </div>\n      </div>\n\n    </div>\n  </div>\n\n  <!-- Loading Overlay -->\n  <div class=\"loading-overlay\" id=\"loading-overlay\">\n    <div class=\"spinner-ring\"></div>\n    <div class=\"loading-text\" id=\"loading-text\">Generating assets...</div>\n  </div>\n\n  <!-- Fullscreen Image Viewer -->\n  <div class=\"fullscreen-overlay\" id=\"fullscreen-overlay\" onclick=\"closeFullscreen()\">\n    <button class=\"fullscreen-close\" type=\"button\" aria-label=\"Close fullscreen\"\n      onclick=\"closeFullscreen()\">&times;</button>\n    <img class=\"fullscreen-image\" id=\"fullscreen-img\" alt=\"Fullscreen preview\" onclick=\"event.stopPropagation()\">\n  </div>\n\n  <!-- Temporary Canvas for operations -->\n  <canvas id=\"hidden-canvas\" class=\"hidden\"></canvas></div>";
+
+    // State Variables
+    let currentStep = 1;
+    let sourceImage = null;      // Selected HTMLImageElement
+    let sourceImageDataUrl = "";
+    let sourceFileName = "";
+    let generatedLineArtVariants = []; // Stores generated line art canvases
+    let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
+    let currentInkColor = "black";
+    let selectedSize = 'l'; // m, l, xl, xxl
+    let fullscreenBodyOverflow = "";
+    let savedDesignId = "";
+    const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
+
+    // Constants
+    const INK_COLORS = {
+      black: [28, 25, 23],
+      red: [220, 38, 38],
+      blue: [29, 78, 216],
+      green: [5, 150, 105]
+    };
+
+    const INK_HEX = {
+      black: "#1c1917",
+      red: "#dc2626",
+      blue: "#1d4ed8",
+      green: "#059669"
+    };
+
+    const SIZE_MAP = {
+      m: 200,
+      l: 300,
+      xl: 360,
+      xxl: 420
+    };
+    const SIZE_RADIUS = {
+      m: 125,
+      l: 155,
+      xl: 180,
+      xxl: 200
+    };
+
+    function setSize(key) {
+      selectedSize = key;
+      // Toggle active classes for buttons
+      ['m','l','xl','xxl'].forEach(k => {
+        const el = document.getElementById('size-' + k);
+        if (el) el.classList.toggle('active', k === key);
+      });
+
+      // Apply size class to preview container
+      const svgContainer = document.getElementById('svg-container');
+      if (svgContainer) {
+        svgContainer.classList.remove('size-m','size-l','size-xl','size-xxl');
+        svgContainer.classList.add('size-' + (key === 'm' ? 'm' : key === 'l' ? 'l' : key === 'xl' ? 'xl' : 'xxl'));
+      }
+      // Auto-adjust text wrap diameter (radius slider) for the chosen size
+      const radiusEl = document.getElementById('radius-slider');
+      if (radiusEl) {
+        const rv = SIZE_RADIUS[key] || parseInt(radiusEl.value);
+        radiusEl.value = rv;
+        const display = document.getElementById('val-radius-slider');
+        if (display) display.textContent = `${rv * 2}px`;
+      }
+
+      updateSvgLayout();
+    }
+
+    const DEFAULT_BACKGROUNDS = [
+      {
+        title: "Jar Mockup",
+        src: "https://cdn.shopify.com/s/files/1/0776/5891/4989/files/bg1.webp?v=1782986777",
+        box: { x: 0.31, y: 0.35, width: 0.38, height: 0.40 },
+        fitScale: 1.02,
+        yOffset: 0.03,
+        rotation: 0
+      },
+      {
+        title: "Fine Art Paper Mockup",
+        src: "https://cdn.shopify.com/s/files/1/0776/5891/4989/files/bg2.jpg?v=1782986777",
+        box: { x: 0.23, y: 0.13, width: 0.54, height: 0.66 },
+        fitScale: 0.96,
+        yOffset: 0.02,
+        rotation: -0.13
+      },
+      {
+        title: "Tote Bag Mockup",
+        src: "https://cdn.shopify.com/s/files/1/0776/5891/4989/files/bg3.png?v=1782986780",
+        box: { x: 0.22, y: 0.34, width: 0.56, height: 0.48 },
+        fitScale: 0.94,
+        yOffset: 0.02,
+        rotation: 0
+      },
+      {
+        title: "Shipping Box Mockup",
+        src: "https://cdn.shopify.com/s/files/1/0776/5891/4989/files/bg4.jpg?v=1782986776",
+        box: { x: 0.27, y: 0.18, width: 0.46, height: 0.62 },
+        fitScale: 0.96,
+        yOffset: 0.02,
+        rotation: 0
+      }
+    ];
+
+    // Initialize drop-zone listeners
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("file-input");
+
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragging");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("dragging");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragging");
+      if (e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files.length > 0) {
+        handleFileSelect(fileInput.files[0]);
+      }
+    });
+
+    function triggerFileSelect() {
+      fileInput.click();
+    }
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file.");
+        return;
+      }
+
+      sourceFileName = file.name;
+      document.getElementById("preview-filename").textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          sourceImage = img;
+          sourceImageDataUrl = e.target.result;
+          document.getElementById("upload-preview").src = sourceImageDataUrl;
+          document.getElementById("upload-preview-card").classList.remove("hidden");
+          document.getElementById("btn-process-image").removeAttribute("disabled");
+          document.getElementById("upload-status-text").textContent = "Photo uploaded successfully!";
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function setLoading(isLoading, text = "Loading...", targetSelector) {
+      const globalOverlay = document.getElementById("loading-overlay");
+      const globalText = document.getElementById("loading-text");
+
+      if (!targetSelector) {
+        if (globalText) globalText.textContent = text;
+        if (globalOverlay) globalOverlay.classList.toggle("active", isLoading);
+        return;
+      }
+
+      const target = document.querySelector(targetSelector);
+      if (!target) {
+      // Use the main overlay if the requested target is unavailable.
+        if (globalText) globalText.textContent = text;
+        if (globalOverlay) globalOverlay.classList.toggle("active", isLoading);
+        return;
+      }
+
+      if (isLoading) {
+        // ensure target is positioned for absolute overlay
+        const computed = window.getComputedStyle(target);
+        if (computed.position === 'static') target.style.position = 'relative';
+
+        let overlay = target.querySelector('.section-loading-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.className = 'section-loading-overlay';
+          overlay.innerHTML = `<div class="spinner-ring"></div><div class="loading-text">${text}</div>`;
+          target.appendChild(overlay);
+        } else {
+          const txt = overlay.querySelector('.loading-text');
+          if (txt) txt.textContent = text;
+          overlay.style.display = 'flex';
+        }
+      } else {
+        const overlay = target.querySelector('.section-loading-overlay');
+        if (overlay) overlay.remove();
+      }
+    }
+
+    // Step Navigation
+    function navigateToStep(stepNum) {
+      // Scroll to the requested step pane only if it's revealed (not locked)
+      const pane = document.getElementById(`step-pane-${stepNum}`);
+      if (!pane || pane.classList.contains('locked')) return;
+      pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      currentStep = stepNum;
+    }
+
+    function revealStep(stepNum) {
+      const pane = document.getElementById(`step-pane-${stepNum}`);
+      if (!pane) return;
+      pane.classList.remove('locked');
+      // small delay then scroll into view
+      setTimeout(() => pane.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+      currentStep = stepNum;
+    }
+
+    function toggleRadiusControl() {
+      const aboveCurved = document.getElementById("above-curved-toggle").checked;
+      const belowCurved = document.getElementById("below-curved-toggle").checked;
+      const controlGrp = document.getElementById("radius-control-group");
+
+      if (aboveCurved || belowCurved) {
+        controlGrp.classList.remove("hidden");
+      } else {
+        controlGrp.classList.add("hidden");
+      }
+    }
+
+    // Convert process trigger
+    async function processSourceImage() {
+      if (!sourceImage) return;
+
+      setLoading(true, "Analyzing image & generating line arts...", "#step-pane-1 .glass-panel");
+
+      try {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            imageDataUrl: sourceImageDataUrl || await fileToDataUrl(fileInput.files[0])
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.detail || data.error || data.message || "Generation failed.");
+        }
+
+        const imageUrls = Array.isArray(data.imageUrls) ? data.imageUrls : getGeneratedImageUrls(data);
+        if (!imageUrls.length) {
+          throw new Error("No generated images were returned.");
+        }
+
+        await renderGeneratedVariants(imageUrls);
+      } catch (err) {
+        console.warn(err);
+        alert("Could not generate line art variants. Please try another image.");
+      } finally {
+        setLoading(false, "", "#step-pane-1 .glass-panel");
+      }
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) {
+          reject(new Error("No source file selected."));
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Could not prepare the selected image."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function getGeneratedImageUrls(data) {
+      const images = Array.isArray(data.images)
+        ? data.images
+        : Array.isArray(data.data && data.data.images)
+          ? data.data.images
+          : [];
+
+      return images
+        .map((image) => {
+          if (typeof image === "string") return image;
+          return image.url || image.image_url || image.data_url || "";
+        })
+        .filter(Boolean)
+        .slice(0, 4);
+    }
+
+    async function renderGeneratedVariants(urls) {
+      const container = document.getElementById("variants-container");
+      container.innerHTML = "";
+
+      const variantNames = ["Minimalist Outline", "Stylized Contour", "Ink Detail Sketch", "Contrast Silhouette"];
+
+      for (let index = 0; index < urls.length; index++) {
+        const img = await loadImageUrl(urls[index]);
+        const lineArt = cleanLineArt(img);
+        generatedLineArtVariants[index] = lineArt;
+
+        const displayCanvas = makeTransparentLineCanvas(lineArt, "black");
+        const displayUrl = displayCanvas.toDataURL();
+
+        const card = document.createElement("div");
+        card.className = "variant-card";
+        card.onclick = () => selectVariant(index);
+
+        card.innerHTML = `
+          <div class="variant-header">
+            <span class="variant-title">${variantNames[index] || `Variant ${index + 1}`}</span>
+          </div>
+          <div class="variant-preview-container">
+            <img src="${displayUrl}" alt="${variantNames[index] || `Variant ${index + 1}`}">
+            <button class="variant-fullscreen-btn" onclick="openVariantFullscreen(event, '${displayUrl}')" title="Open fullscreen">⛶</button>
+          </div>
+          <button class="variant-select-btn">Choose Variant</button>
+        `;
+
+        container.appendChild(card);
+      }
+
+      revealStep(2);
+    }
+
+    function selectVariant(index) {
+      selectedVariant = generatedLineArtVariants[index];
+      saveSelectedDesign(index);
+
+      // Update selected cards state
+      document.querySelectorAll(".variant-card").forEach((card, idx) => {
+        if (idx === index) {
+          card.classList.add("selected");
+        } else {
+          card.classList.remove("selected");
+        }
+      });
+
+      // Move forward automatically with small aesthetic delay
+        setTimeout(() => {
+        // Init typography setting
+        selectInkColor("black");
+        updateSvgLayout();
+        revealStep(3);
+      }, 350);
+    }
+
+    async function saveSelectedDesign(index) {
+      if (!sourceImageDataUrl || !selectedVariant) return;
+
+      try {
+        const variantCanvas = makeTransparentLineCanvas(selectedVariant, "black");
+        const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            originalImageDataUrl: sourceImageDataUrl,
+            chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
+            settings: {
+              sourceFileName,
+              selectedVariantIndex: index,
+              selectedSize,
+              inkColor: currentInkColor
+            }
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || "Design save failed.");
+        }
+
+        savedDesignId = data.designId || "";
+      } catch (err) {
+        console.warn("Design save skipped:", err);
+      }
+    }
+
+    function selectInkColor(color) {
+      currentInkColor = color;
+
+      document.querySelectorAll(".color-swatches .swatch").forEach((sw) => {
+        sw.classList.remove("selected");
+      });
+
+      const activeSwatch = document.querySelector(`.color-swatches .swatch-${color}`);
+      if (activeSwatch) activeSwatch.classList.add("selected");
+
+      updateSvgLayout();
+    }
+
+    function setPreviewBg(theme) {
+      const container = document.getElementById("svg-container");
+      const btnTransparent = document.getElementById("btn-theme-transparent");
+      const btnWhite = document.getElementById("btn-theme-white");
+
+      if (theme === 'transparent') {
+        container.className = "svg-artwork-container checkerboard-bg";
+        btnTransparent.classList.add("active");
+        btnWhite.classList.remove("active");
+      } else {
+        container.className = "svg-artwork-container";
+        btnTransparent.classList.remove("active");
+        btnWhite.classList.add("active");
+      }
+    }
+
+    // Dynamic SVG layout
+    function updateSvgLayout() {
+      if (!selectedVariant) return;
+
+      const inkColorHex = INK_HEX[currentInkColor] || INK_HEX.black;
+
+      // Generate transparent line art image in chosen ink color
+      const lineCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
+      const transparentDataUrl = lineCanvas.toDataURL("image/png");
+
+      // Update Image element inside SVG
+      const svgImage = document.getElementById("svg-image-element");
+      svgImage.setAttribute("href", transparentDataUrl);
+
+      // Fit and center the cropped line art bounds (size depends on selected size)
+      const maxFitSize = SIZE_MAP[selectedSize] || 300;
+      const scale = Math.min(maxFitSize / lineCanvas.width, maxFitSize / lineCanvas.height);
+      const drawW = lineCanvas.width * scale;
+      const drawH = lineCanvas.height * scale;
+      const drawX = 250 - drawW / 2;
+      const drawY = 250 - drawH / 2;
+
+      svgImage.setAttribute("x", drawX);
+      svgImage.setAttribute("y", drawY);
+      svgImage.setAttribute("width", drawW);
+      svgImage.setAttribute("height", drawH);
+
+      // Extract slider inputs
+      const fontFam = document.getElementById("font-family-select").value;
+      const textRadius = parseInt(document.getElementById("radius-slider").value);
+      const aboveTextVal = document.getElementById("above-text-input").value.trim().toUpperCase();
+      const belowTextVal = document.getElementById("below-text-input").value.trim().toUpperCase();
+      const aboveCurved = document.getElementById("above-curved-toggle").checked;
+      const belowCurved = document.getElementById("below-curved-toggle").checked;
+      const aboveSize = document.getElementById("above-size-slider").value;
+      const belowSize = document.getElementById("below-size-slider").value;
+
+      // Update slider value displays
+      document.getElementById("val-radius-slider").textContent = `${textRadius * 2}px`;
+      document.getElementById("val-above-size").textContent = `${aboveSize}px`;
+      document.getElementById("val-below-size").textContent = `${belowSize}px`;
+
+      // Update paths
+      // Above text curve path: clockwise circular arc left-to-right on top (sweep-flag = 1)
+      const dAbove = `M ${250 - textRadius},250 A ${textRadius},${textRadius} 0 0,1 ${250 + textRadius},250`;
+      document.getElementById("above-text-path").setAttribute("d", dAbove);
+
+      // Below text curve path: counter-clockwise circular arc left-to-right on bottom (sweep-flag = 0)
+      const dBelow = `M ${250 - textRadius},250 A ${textRadius},${textRadius} 0 0,0 ${250 + textRadius},250`;
+      document.getElementById("below-text-path").setAttribute("d", dBelow);
+
+      // ABOVE TEXT GROUP rendering
+      const aboveGroup = document.getElementById("above-text-group");
+      aboveGroup.innerHTML = "";
+
+      if (aboveTextVal) {
+        const textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textElement.setAttribute("fill", inkColorHex);
+        textElement.setAttribute("font-family", fontFam);
+        textElement.setAttribute("font-size", aboveSize);
+        textElement.setAttribute("font-weight", "600");
+        textElement.setAttribute("letter-spacing", "2");
+        textElement.className.baseVal = "svg-text-above";
+
+        if (aboveCurved) {
+          const textPathElement = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
+          textPathElement.setAttribute("href", "#above-text-path");
+          textPathElement.setAttribute("startOffset", "50%");
+          textPathElement.setAttribute("text-anchor", "middle");
+          textPathElement.textContent = aboveTextVal;
+          textElement.appendChild(textPathElement);
+        } else {
+          // Straight text: spacing depends on chosen stamp size
+          const padMap = { m: 8, l: 24, xl: 36, xxl: 48 };
+          const pad = padMap[selectedSize] || 24;
+          const aboveY = Math.max(18, drawY - pad);
+          textElement.setAttribute("x", "250");
+          textElement.setAttribute("y", `${aboveY}`);
+          textElement.setAttribute("text-anchor", "middle");
+          textElement.textContent = aboveTextVal;
+        }
+        aboveGroup.appendChild(textElement);
+      }
+
+      // BELOW TEXT GROUP rendering
+      const belowGroup = document.getElementById("below-text-group");
+      belowGroup.innerHTML = "";
+
+      if (belowTextVal) {
+        const textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textElement.setAttribute("fill", inkColorHex);
+        textElement.setAttribute("font-family", fontFam);
+        textElement.setAttribute("font-size", belowSize);
+        textElement.setAttribute("font-weight", "600");
+        textElement.setAttribute("letter-spacing", "2");
+        textElement.className.baseVal = "svg-text-below";
+
+        if (belowCurved) {
+          const textPathElement = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
+          textPathElement.setAttribute("href", "#below-text-path");
+          textPathElement.setAttribute("startOffset", "50%");
+          textPathElement.setAttribute("text-anchor", "middle");
+          textPathElement.textContent = belowTextVal;
+          textElement.appendChild(textPathElement);
+        } else {
+          // Straight text: spacing depends on chosen stamp size
+          const padMap = { m: 8, l: 24, xl: 36, xxl: 48 };
+          const pad = padMap[selectedSize] || 24;
+          const belowY = Math.min(480, drawY + drawH + pad + 8);
+          textElement.setAttribute("x", "250");
+          textElement.setAttribute("y", `${belowY}`);
+          textElement.setAttribute("text-anchor", "middle");
+          textElement.textContent = belowTextVal;
+        }
+        belowGroup.appendChild(textElement);
+      }
+    }
+
+    // Step 4: Composing on backgrounds
+    async function proceedToMockups() {
+      setLoading(true, "Composing designs onto merchandise templates...", "#step-pane-4 .glass-panel");
+
+      const container = document.getElementById("mockups-container");
+      container.innerHTML = "";
+
+      try {
+        const svgElement = document.getElementById("artwork-svg");
+
+        // Temporarily set svg background to none (transparent overlay)
+        document.getElementById("svg-bg-rect").setAttribute("fill", "none");
+
+        // Convert SVG to self-contained Overlay Image
+        const svgOverlayImg = await svgToImage(svgElement);
+
+        let successCount = 0;
+
+        for (let i = 0; i < DEFAULT_BACKGROUNDS.length; i++) {
+          const mockup = DEFAULT_BACKGROUNDS[i];
+          try {
+            const bgImg = await loadImageUrl(mockup.src);
+            const resultUrl = await composeOverlayOnBackground(bgImg, svgOverlayImg, mockup);
+
+            const card = document.createElement("div");
+            card.className = "mockup-card";
+
+            card.innerHTML = `
+              <div class="mockup-title">${mockup.title}</div>
+              <div class="mockup-image-container">
+                <img src="${resultUrl}" alt="${mockup.title}">
+                <button style="position:absolute; bottom:12px; right:12px; width:36px; height:36px; padding:0; font-size:16px; border-radius:50%; box-shadow:0 2px 10px rgba(0,0,0,0.15);" class="btn btn-secondary" onclick="openFullscreen('${resultUrl}')" title="Zoom Mockup">⛶</button>
+              </div>
+            `;
+
+            container.appendChild(card);
+            successCount++;
+          } catch (e) {
+            console.warn(`Failed composing background: ${mockup.title}`, e);
+          }
+        }
+
+        if (successCount === 0) {
+          throw new Error("Could not fetch or composite mockup backgrounds. Check network connection.");
+        }
+
+        // Reveal and scroll to the mockups pane
+        revealStep(4);
+      } catch (err) {
+        alert("Mockup composite failed: " + err.message);
+      } finally {
+        setLoading(false, "", "#step-pane-4 .glass-panel");
+      }
+    }
+
+    // Helper SVG to Image Converter
+    function svgToImage(svgElement) {
+      return new Promise((resolve, reject) => {
+        // Convert SVG element to string
+        const svgString = new XMLSerializer().serializeToString(svgElement);
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+        img.onerror = (e) => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Could not parse SVG as Image overlay: " + e.message));
+        };
+        img.src = url;
+      });
+    }
+
+    async function composeOverlayOnBackground(background, overlay, placement) {
+      const canvas = document.getElementById("hidden-canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      const maxSide = 2200;
+      const bgScale = Math.min(1, maxSide / Math.max(background.width, background.height));
+      const bgWidth = Math.max(1, Math.round(background.width * bgScale));
+      const bgHeight = Math.max(1, Math.round(background.height * bgScale));
+
+      canvas.width = bgWidth;
+      canvas.height = bgHeight;
+      ctx.drawImage(background, 0, 0, bgWidth, bgHeight);
+
+      const box = {
+        x: bgWidth * placement.box.x,
+        y: bgHeight * placement.box.y,
+        width: bgWidth * placement.box.width,
+        height: bgHeight * placement.box.height
+      };
+
+      const padding = Math.min(box.width, box.height) * 0.05;
+      const fitScale = placement.fitScale;
+
+      const targetWidth = (box.width - padding * 2) * fitScale;
+      const targetHeight = (box.height - padding * 2) * fitScale;
+
+      const scale = Math.min(targetWidth / overlay.width, targetHeight / overlay.height);
+      const drawWidth = overlay.width * scale;
+      const drawHeight = overlay.height * scale;
+
+      const drawX = box.x + (box.width - drawWidth) / 2;
+      const yOffset = box.height * placement.yOffset;
+      const drawY = box.y + (box.height - drawHeight) / 2 + yOffset;
+
+      const centerX = drawX + drawWidth / 2;
+      const centerY = drawY + drawHeight / 2;
+
+      ctx.save();
+      ctx.globalCompositeOperation = placement.blendMode || "source-over";
+      ctx.globalAlpha = placement.opacity || 0.98;
+      ctx.shadowColor = "rgba(255, 255, 255, 0.45)";
+      ctx.shadowBlur = Math.max(2, Math.round(Math.min(bgWidth, bgHeight) * 0.004));
+      ctx.translate(centerX, centerY);
+      ctx.rotate(placement.rotation);
+      ctx.drawImage(overlay, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      ctx.restore();
+
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Could not render canvas to Blob."));
+            return;
+          }
+          resolve(URL.createObjectURL(blob));
+        }, "image/png");
+      });
+    }
+
+    
+
+    function restartWorkflow() {
+      sourceImage = null;
+      sourceImageDataUrl = "";
+      selectedVariant = null;
+      savedDesignId = "";
+      generatedLineArtVariants = [];
+      document.getElementById("btn-process-image").setAttribute("disabled", "true");
+      document.getElementById("upload-preview-card").classList.add("hidden");
+      document.getElementById("upload-status-text").textContent = "Drag & drop photo here";
+      document.getElementById("above-text-input").value = "";
+      document.getElementById("below-text-input").value = "";
+      document.getElementById("file-input").value = "";
+      // Scroll to top (upload step)
+      navigateToStep(1);
+    }
+
+    // Image loading helper
+    function loadImageUrl(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load image from URL: ${url}`));
+        img.src = url;
+      });
+    }
+
+    // Fullscreen Handlers
+    function showFullscreenImage(url) {
+      const overlay = document.getElementById("fullscreen-overlay");
+      const img = document.getElementById("fullscreen-img");
+      const viewport = window.visualViewport || window;
+      const viewportWidth = Math.floor(viewport.width || window.innerWidth);
+      const viewportHeight = Math.floor(viewport.height || window.innerHeight);
+      const padding = window.matchMedia("(max-width: 600px)").matches ? 24 : 32;
+
+      if (!overlay.classList.contains("active")) {
+        fullscreenBodyOverflow = document.body.style.overflow;
+      }
+      document.body.style.overflow = "hidden";
+      overlay.style.setProperty("--fullscreen-max-width", `${Math.max(1, viewportWidth - padding)}px`);
+      overlay.style.setProperty("--fullscreen-max-height", `${Math.max(1, viewportHeight - padding)}px`);
+      overlay.scrollTop = 0;
+      overlay.scrollLeft = 0;
+      img.style.width = "auto";
+      img.style.height = "auto";
+      img.onload = () => {
+        const viewportRatio = viewportWidth / viewportHeight;
+        const imageRatio = img.naturalWidth / img.naturalHeight;
+
+        if (imageRatio > viewportRatio) {
+          img.style.width = `min(100%, ${Math.max(1, viewportWidth - padding)}px)`;
+          img.style.height = "auto";
+        } else {
+          img.style.width = "auto";
+          img.style.height = `${Math.max(1, viewportHeight - padding)}px`;
+        }
+      };
+      img.src = url;
+      overlay.classList.add("active");
+    }
+
+    function openFullscreen(url) {
+      showFullscreenImage(url);
+    }
+
+    function closeFullscreen() {
+      document.getElementById("fullscreen-overlay").classList.remove("active");
+      document.body.style.overflow = fullscreenBodyOverflow;
+    }
+
+    function openVariantFullscreen(evt, dataUrl) {
+      // Prevent parent card click selecting variant when clicking fullscreen button
+      evt.stopPropagation();
+      showFullscreenImage(dataUrl);
+    }
+
+    /* Core Grayscale Image Processing Utilities */
+    function grayAt(data, index) {
+      return 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
+    }
+
+    function prepareImage(image) {
+      const canvas = document.getElementById("hidden-canvas");
+      const ctx = canvas.getContext("2d");
+
+      const maxSide = 1800;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, 0, width, height);
+
+      return { width, height, imageData: ctx.getImageData(0, 0, width, height) };
+    }
+
+    function otsuThreshold(gray) {
+      const hist = new Uint32Array(256);
+      for (let i = 0; i < gray.length; i++) {
+        hist[Math.max(0, Math.min(255, Math.round(gray[i])))]++;
+      }
+
+      let total = gray.length;
+      let sum = 0;
+      for (let i = 0; i < 256; i++) {
+        sum += i * hist[i];
+      }
+
+      let sumB = 0;
+      let weightB = 0;
+      let bestVariance = -1;
+      let threshold = 180;
+
+      for (let i = 0; i < 256; i++) {
+        weightB += hist[i];
+        if (weightB === 0) continue;
+        const weightF = total - weightB;
+        if (weightF === 0) break;
+
+        sumB += i * hist[i];
+        const meanB = sumB / weightB;
+        const meanF = (sum - sumB) / weightF;
+        const variance = weightB * weightF * (meanB - meanF) * (meanB - meanF);
+
+        if (variance > bestVariance) {
+          bestVariance = variance;
+          threshold = i;
+        }
+      }
+
+      return Math.max(110, Math.min(220, threshold + 25));
+    }
+
+    function buildIntegral(gray, width, height) {
+      const integral = new Float64Array((width + 1) * (height + 1));
+      for (let y = 1; y <= height; y++) {
+        let rowSum = 0;
+        for (let x = 1; x <= width; x++) {
+          rowSum += gray[(y - 1) * width + (x - 1)];
+          integral[y * (width + 1) + x] = integral[(y - 1) * (width + 1) + x] + rowSum;
+        }
+      }
+      return integral;
+    }
+
+    function neighborhoodMean(integral, width, height, x, y, radius) {
+      const x1 = Math.max(0, x - radius);
+      const y1 = Math.max(0, y - radius);
+      const x2 = Math.min(width - 1, x + radius);
+      const y2 = Math.min(height - 1, y + radius);
+      const stride = width + 1;
+      const area = (x2 - x1 + 1) * (y2 - y1 + 1);
+
+      const sum =
+        integral[(y2 + 1) * stride + (x2 + 1)] -
+        integral[y1 * stride + (x2 + 1)] -
+        integral[(y2 + 1) * stride + x1] +
+        integral[y1 * stride + x1];
+
+      return sum / area;
+    }
+
+    // Cleans generated line art into a transparent, recolorable form.
+    function cleanLineArt(image) {
+      const { width, height, imageData } = prepareImage(image);
+      const canvas = document.getElementById("hidden-canvas");
+      const ctx = canvas.getContext("2d");
+      const src = imageData.data;
+      const output = ctx.createImageData(width, height);
+      const dst = output.data;
+      const gray = new Float32Array(width * height);
+      const ink = new Uint8Array(width * height);
+      const cleaned = new Uint8Array(width * height);
+      const useLogoExtraction = shouldUseLogoExtraction(src);
+
+      for (let i = 0, p = 0; i < src.length; i += 4, p++) {
+        gray[p] = grayAt(src, i);
+      }
+
+      if (useLogoExtraction) {
+        for (let i = 0, p = 0; i < src.length; i += 4, p++) {
+          if (isDarkLogoInk(src, i)) {
+            ink[p] = 1;
+          }
+        }
+      } else {
+        const globalThreshold = otsuThreshold(gray);
+        const integral = buildIntegral(gray, width, height);
+        const radius = Math.max(14, Math.round(Math.min(width, height) / 42));
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const p = y * width + x;
+            const mean = neighborhoodMean(integral, width, height, x, y, radius);
+            const adaptiveThreshold = Math.min(235, mean - 13);
+
+            if (gray[p] < globalThreshold || (gray[p] < adaptiveThreshold && gray[p] < 232)) {
+              ink[p] = 1;
+            }
+          }
+        }
+      }
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const p = y * width + x;
+          if (!ink[p]) continue;
+
+          let neighbors = 0;
+          for (let yy = -1; yy <= 1; yy++) {
+            for (let xx = -1; xx <= 1; xx++) {
+              if (xx === 0 && yy === 0) continue;
+              const nx = x + xx;
+              const ny = y + yy;
+              if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+              if (ink[ny * width + nx]) neighbors++;
+            }
+          }
+
+          if (neighbors > 0 || gray[p] < 120) {
+            cleaned[p] = 1;
+          }
+        }
+      }
+
+      for (let i = 0, p = 0; i < dst.length; i += 4, p++) {
+        const color = cleaned[p] ? 0 : 255;
+        dst[i] = color;
+        dst[i + 1] = color;
+        dst[i + 2] = color;
+        dst[i + 3] = 255;
+      }
+
+      ctx.putImageData(output, 0, 0);
+      return {
+        width,
+        height,
+        imageData: output
+      };
+    }
+
+    function getInkBounds(imageData, width, height) {
+      const data = imageData.data;
+      let minX = width;
+      let minY = height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          if (data[i] < 20 && data[i + 1] < 20 && data[i + 2] < 20) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return { x: 0, y: 0, width, height };
+      }
+
+      const pad = Math.round(Math.max(width, height) * 0.025);
+      minX = Math.max(0, minX - pad);
+      minY = Math.max(0, minY - pad);
+      maxX = Math.min(width - 1, maxX + pad);
+      maxY = Math.min(height - 1, maxY + pad);
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+      };
+    }
+
+    // Constructs the transparent colored PNG canvas
+    function makeTransparentLineCanvas(lineArt, inkColor) {
+      const bounds = getInkBounds(lineArt.imageData, lineArt.width, lineArt.height);
+      const crop = document.createElement("canvas");
+      const cropCtx = crop.getContext("2d", { willReadFrequently: true });
+      const transparent = cropCtx.createImageData(bounds.width, bounds.height);
+      const src = lineArt.imageData.data;
+      const dst = transparent.data;
+      const color = INK_COLORS[inkColor] || INK_COLORS.black;
+
+      crop.width = bounds.width;
+      crop.height = bounds.height;
+
+      for (let y = 0; y < bounds.height; y++) {
+        for (let x = 0; x < bounds.width; x++) {
+          const srcX = bounds.x + x;
+          const srcY = bounds.y + y;
+          const srcI = (srcY * lineArt.width + srcX) * 4;
+          const dstI = (y * bounds.width + x) * 4;
+          const isInk = src[srcI] < 20 && src[srcI + 1] < 20 && src[srcI + 2] < 20;
+
+          if (isInk) {
+            dst[dstI] = color[0];
+            dst[dstI + 1] = color[1];
+            dst[dstI + 2] = color[2];
+            dst[dstI + 3] = 235; // slightly transparent lines for realistic texture look
+          } else {
+            dst[dstI + 3] = 0;
+          }
+        }
+      }
+
+      cropCtx.putImageData(transparent, 0, 0);
+      return crop;
+    }
+
+    function shouldUseLogoExtraction(data) {
+      let saturatedPixels = 0;
+      let visiblePixels = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        if (alpha < 20) continue;
+
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+
+        visiblePixels++;
+        if (max - min > 70 && max > 120) {
+          saturatedPixels++;
+        }
+      }
+
+      return visiblePixels > 0 && saturatedPixels / visiblePixels > 0.08;
+    }
+
+    function isDarkLogoInk(data, index) {
+      const alpha = data[index + 3];
+      if (alpha < 35) return false;
+
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const luma = grayAt(data, index);
+
+      return max < 95 || (luma < 120 && max - min < 55);
+    }
+
+    // Initialize UI state
+    try { setSize(selectedSize); } catch (e) { /* ignore if DOM not ready */ }
+  
+})();

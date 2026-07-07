@@ -35,6 +35,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: "35mb" }));
+app.use(express.static("public"));
 
 let mongoClientPromise;
 
