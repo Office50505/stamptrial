@@ -2,20 +2,27 @@
   const mount = document.getElementById('line-art-customizer-mount');
   if (!mount || mount.dataset.initialized === 'true') return;
   mount.dataset.initialized = 'true';
-  mount.innerHTML = "<div class=\"line-art-customizer-root\"><div class=\"app-container\">\n    <header class=\"app-header\">\n      <h1>Exact Line Art Studio</h1>\n      <p class=\"app-subtitle\">Create premium custom line art and design stunning mockups in a few simple steps.</p>\n    </header>\n\n    <!-- Top progress removed; steps reveal progressively on the same page -->\n\n    <!-- Main Wizard Content panels -->\n    <div class=\"wizard-content-container\">\n\n      <!-- STEP 1: Upload -->\n      <div class=\"step-content active\" id=\"step-pane-1\">\n        <div class=\"glass-panel upload-step-layout\">\n\n          <div class=\"upload-zone\" id=\"drop-zone\">\n            <svg class=\"upload-icon\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"1.5\">\n              <path stroke-linecap=\"round\" stroke-linejoin=\"round\"\n                d=\"M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z\" />\n            </svg>\n            <div class=\"upload-text\" id=\"upload-status-text\">Drag & drop photo here</div>\n            <div class=\"upload-subtext\">Supports PNG, JPEG, WEBP up to 10MB</div>\n            <button class=\"btn btn-secondary\" onclick=\"triggerFileSelect()\">Browse Files</button>\n            <input type=\"file\" id=\"file-input\" accept=\"image/png, image/jpeg, image/webp\" class=\"hidden\">\n          </div>\n\n          <div class=\"preview-card hidden\" id=\"upload-preview-card\">\n            <img id=\"upload-preview\" src=\"\" alt=\"Source preview\">\n            <div class=\"preview-card-info\" id=\"preview-filename\">image.jpg</div>\n          </div>\n\n          <div class=\"button-row\" style=\"justify-content: flex-end;\">\n            <button class=\"btn btn-primary\" id=\"btn-process-image\" disabled onclick=\"processSourceImage()\">\n              Generate Line Arts\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M13 5l7 7-7 7M5 5l7 7-7 7\" />\n              </svg>\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 2: Style Selection -->\n      <div class=\"step-content locked\" id=\"step-pane-2\">\n        <div class=\"glass-panel\">\n          <h2 style=\"font-family:'Montserrat',sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 24px;\">\n            Select Line Art Variant</h2>\n\n          <div class=\"variants-grid\" id=\"variants-container\">\n            <!-- Dynamic Variant Cards will go here -->\n          </div>\n\n          <div class=\"button-row\">\n            <button class=\"btn btn-secondary\" onclick=\"navigateToStep(1)\">\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M11 19l-7-7 7-7M20 19l-7-7 7-7\" />\n              </svg>\n              Back to Upload\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 3: Customize Typography & Colors -->\n      <div class=\"step-content locked\" id=\"step-pane-3\">\n        <div class=\"glass-panel\">\n          <div class=\"customize-layout\">\n\n            <!-- Left Workspace Preview -->\n            <div class=\"canvas-panel\">\n              <div class=\"svg-artwork-container checkerboard-bg\" id=\"svg-container\">\n\n                <!-- Main Interactive SVG -->\n                <svg id=\"artwork-svg\" viewBox=\"0 0 500 500\" width=\"100%\" height=\"100%\"\n                  xmlns=\"http://www.w3.org/2000/svg\">\n                  <defs>\n                    <!-- Font styles imported for SVG rendering context inside canvas -->\n                    <style>\n                      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Montserrat:wght@600;700&family=Outfit:wght@500;700&family=Playfair+Display:ital,wght@0,600;1,600&family=Rochester&display=swap');\n\n                      .svg-text-above,\n                      .svg-text-below {\n                        text-anchor: middle;\n                        user-select: none;\n                      }\n                    </style>\n                  </defs>\n                  <!-- Background rect for high-res clean renders -->\n                  <rect width=\"500\" height=\"500\" fill=\"none\" id=\"svg-bg-rect\" />\n\n                  <!-- Selected Transparent Line Art Image -->\n                  <image id=\"svg-image-element\" x=\"120\" y=\"120\" width=\"260\" height=\"260\"\n                    preserveAspectRatio=\"xMidYMid meet\" />\n\n                  <!-- Curved Path Definitions -->\n                  <path id=\"above-text-path\" fill=\"none\" stroke=\"none\" />\n                  <path id=\"below-text-path\" fill=\"none\" stroke=\"none\" />\n\n                  <!-- Text Elements -->\n                  <g id=\"above-text-group\"></g>\n                  <g id=\"below-text-group\"></g>\n                </svg>\n\n              </div>\n\n              <div class=\"preview-theme-toggle\">\n                <button class=\"theme-toggle-btn active\" id=\"btn-theme-transparent\"\n                  onclick=\"setPreviewBg('transparent')\">Transparent Grid</button>\n                <button class=\"theme-toggle-btn\" id=\"btn-theme-white\" onclick=\"setPreviewBg('white')\">Solid\n                  White</button>\n              </div>\n            </div>\n\n            <!-- Right Controls Card -->\n            <div class=\"controls-panel\">\n\n              <!-- Typography Font Family -->\n              <div class=\"control-group\">\n                <label class=\"control-label\">Typography Style</label>\n                <select class=\"select-field\" id=\"font-family-select\" onchange=\"updateSvgLayout()\">\n                  <option value=\"'Outfit', sans-serif\">Outfit (Modern Geometric)</option>\n                  <option value=\"'Montserrat', sans-serif\">Montserrat (Bold Modern)</option>\n                  <option value=\"'Playfair Display', serif\">Playfair Display (Elegant Serif)</option>\n                  <option value=\"'Cinzel', serif\">Cinzel (Roman Calligraphy)</option>\n                  <option value=\"'Rochester', cursive\">Rochester (Classic Script)</option>\n                </select>\n              </div>\n\n              <!-- Size Selector -->\n              <div class=\"control-group\">\n                <label class=\"control-label\">Size</label>\n                <div class=\"size-selector\" style=\"margin-top:8px;\">\n                  <button class=\"size-option\" id=\"size-m\" onclick=\"setSize('m')\">M - 4 in</button>\n                  <button class=\"size-option active\" id=\"size-l\" onclick=\"setSize('l')\">L - 6 in</button>\n                  <button class=\"size-option\" id=\"size-xl\" onclick=\"setSize('xl')\">XL - 8 in</button>\n                  <button class=\"size-option\" id=\"size-xxl\" onclick=\"setSize('xxl')\">XXL - 10 in</button>\n                </div>\n              </div>\n\n              <!-- Text Arc Radius Slider -->\n              <div class=\"control-group\" id=\"radius-control-group\">\n                <label class=\"control-label\">\n                  Text Wrap Diameter\n                  <span class=\"value\" id=\"val-radius-slider\">310px</span>\n                </label>\n                <input type=\"range\" class=\"range-slider\" id=\"radius-slider\" min=\"125\" max=\"210\" value=\"155\"\n                  oninput=\"updateSvgLayout()\">\n              </div>\n\n              <!-- Above Text Customizer -->\n              <div style=\"border-top: 1px solid var(--border-color); padding-top: 20px;\" class=\"control-group\">\n                <label class=\"control-label\">Above Text (Optional)</label>\n                <input type=\"text\" class=\"input-field\" id=\"above-text-input\" placeholder=\"Type text here...\"\n                  oninput=\"updateSvgLayout()\">\n\n                <div class=\"toggle-row\" id=\"above-curve-toggle-row\">\n                  <div class=\"toggle-info\">\n                    <span class=\"toggle-name\">Curve Above Text</span>\n                    <span class=\"toggle-desc\">Wraps text over the top circle arc</span>\n                  </div>\n                  <label class=\"switch\">\n                    <input type=\"checkbox\" id=\"above-curved-toggle\" checked\n                      onchange=\"toggleRadiusControl(); updateSvgLayout();\">\n                    <span class=\"slider-toggle\"></span>\n                  </label>\n                </div>\n\n                <div class=\"control-group\" style=\"margin-top: 8px;\">\n                  <label class=\"control-label\">\n                    Above Font Size\n                    <span class=\"value\" id=\"val-above-size\">24px</span>\n                  </label>\n                  <input type=\"range\" class=\"range-slider\" id=\"above-size-slider\" min=\"14\" max=\"44\" value=\"24\"\n                    oninput=\"updateSvgLayout()\">\n                </div>\n              </div>\n\n              <!-- Below Text Customizer -->\n              <div style=\"border-top: 1px solid var(--border-color); padding-top: 20px;\" class=\"control-group\">\n                <label class=\"control-label\">Below Text (Optional)</label>\n                <input type=\"text\" class=\"input-field\" id=\"below-text-input\" placeholder=\"Type text here...\"\n                  oninput=\"updateSvgLayout()\">\n\n                <div class=\"toggle-row\" id=\"below-curve-toggle-row\">\n                  <div class=\"toggle-info\">\n                    <span class=\"toggle-name\">Curve Below Text</span>\n                    <span class=\"toggle-desc\">Wraps text under the bottom circle arc</span>\n                  </div>\n                  <label class=\"switch\">\n                    <input type=\"checkbox\" id=\"below-curved-toggle\" checked\n                      onchange=\"toggleRadiusControl(); updateSvgLayout();\">\n                    <span class=\"slider-toggle\"></span>\n                  </label>\n                </div>\n\n                <div class=\"control-group\" style=\"margin-top: 8px;\">\n                  <label class=\"control-label\">\n                    Below Font Size\n                    <span class=\"value\" id=\"val-below-size\">24px</span>\n                  </label>\n                  <input type=\"range\" class=\"range-slider\" id=\"below-size-slider\" min=\"14\" max=\"44\" value=\"24\"\n                    oninput=\"updateSvgLayout()\">\n                </div>\n              </div>\n\n              <div class=\"button-row\">\n                <button class=\"btn btn-secondary\" onclick=\"navigateToStep(2)\">Back to Styles</button>\n                <button class=\"btn btn-primary\" onclick=\"proceedToMockups()\">\n                  Apply to Mockups\n                  <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                    stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                    <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 5l7 7-7 7\" />\n                  </svg>\n                </button>\n              </div>\n\n            </div>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 4: Product Mockup previews & Export -->\n      <div class=\"step-content locked\" id=\"step-pane-4\">\n        <div class=\"glass-panel\">\n          <h2 style=\"font-family:'Montserrat',sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 24px;\">Your\n            Product Mockups</h2>\n\n          <div class=\"mockups-grid\" id=\"mockups-container\">\n            <!-- Mockup cards loaded dynamically -->\n          </div>\n\n          <div class=\"export-options-bar\">\n            <button class=\"btn btn-primary\" onclick=\"restartWorkflow()\">\n              Start New Design\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\"\n                  d=\"M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18\" />\n              </svg>\n            </button>\n          </div>\n\n          <div class=\"button-row\" style=\"margin-top: 40px;\">\n            <button class=\"btn btn-secondary\" onclick=\"navigateToStep(3)\">Back to Customizer</button>\n          </div>\n        </div>\n      </div>\n\n    </div>\n  </div>\n\n  <!-- Loading Overlay -->\n  <div class=\"loading-overlay\" id=\"loading-overlay\">\n    <div class=\"spinner-ring\"></div>\n    <div class=\"loading-text\" id=\"loading-text\">Generating assets...</div>\n  </div>\n\n  <!-- Fullscreen Image Viewer -->\n  <div class=\"fullscreen-overlay\" id=\"fullscreen-overlay\" onclick=\"closeFullscreen()\">\n    <button class=\"fullscreen-close\" type=\"button\" aria-label=\"Close fullscreen\"\n      onclick=\"closeFullscreen()\">&times;</button>\n    <img class=\"fullscreen-image\" id=\"fullscreen-img\" alt=\"Fullscreen preview\" onclick=\"event.stopPropagation()\">\n  </div>\n\n  <!-- Temporary Canvas for operations -->\n  <canvas id=\"hidden-canvas\" class=\"hidden\"></canvas></div>";
+  mount.innerHTML = "<div class=\"line-art-customizer-root\"><div class=\"app-container\">\n    <div class=\"wizard-content-container\">\n\n      <!-- STEP 1: Upload -->\n      <div class=\"step-content active\" id=\"step-pane-1\">\n        <div class=\"glass-panel upload-step-layout\">\n\n          <div class=\"upload-zone\" id=\"drop-zone\">\n            <svg class=\"upload-icon\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"1.5\">\n              <path stroke-linecap=\"round\" stroke-linejoin=\"round\"\n                d=\"M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z\" />\n            </svg>\n            <div class=\"upload-text\" id=\"upload-status-text\">Drag & drop photo here</div>\n            <div class=\"upload-subtext\">Supports PNG, JPEG, WEBP up to 10MB</div>\n            <button class=\"btn btn-secondary\" onclick=\"triggerFileSelect()\">Browse Files</button>\n            <input type=\"file\" id=\"file-input\" accept=\"image/png, image/jpeg, image/webp\" class=\"hidden\">\n          </div>\n\n          <div class=\"preview-card hidden\" id=\"upload-preview-card\">\n            <canvas id=\"crop-canvas\" class=\"crop-canvas\" width=\"520\" height=\"520\" aria-label=\"Crop preview\"></canvas>\n            <div class=\"preview-card-info\" id=\"preview-filename\">image.jpg</div>\n          </div>\n\n          <div class=\"button-row\" style=\"justify-content: flex-end;\">\n            <button class=\"btn btn-primary\" id=\"btn-process-image\" disabled onclick=\"processSourceImage()\">\n              Generate Line Arts\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M13 5l7 7-7 7M5 5l7 7-7 7\" />\n              </svg>\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 2: Style Selection -->\n      <div class=\"step-content locked\" id=\"step-pane-2\">\n        <div class=\"glass-panel\">\n          <h2 style=\"font-family:'Montserrat',sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 24px;\">\n            Select Line Art Variant</h2>\n\n          <div class=\"variants-grid\" id=\"variants-container\">\n            <!-- Dynamic Variant Cards will go here -->\n          </div>\n\n          <div class=\"button-row\">\n            <button class=\"btn btn-secondary\" onclick=\"navigateToStep(1)\">\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M11 19l-7-7 7-7M20 19l-7-7 7-7\" />\n              </svg>\n              Back to Upload\n            </button>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 3: Customize Typography & Colors -->\n      <div class=\"step-content locked\" id=\"step-pane-3\">\n        <div class=\"glass-panel\">\n          <div class=\"customize-layout\">\n\n            <!-- Left Workspace Preview -->\n            <div class=\"canvas-panel\">\n              <div class=\"svg-artwork-container checkerboard-bg\" id=\"svg-container\">\n\n                <!-- Main Interactive SVG -->\n                <svg id=\"artwork-svg\" viewBox=\"0 0 500 500\" width=\"100%\" height=\"100%\"\n                  xmlns=\"http://www.w3.org/2000/svg\">\n                  <defs>\n                    <!-- Font styles imported for SVG rendering context inside canvas -->\n                    <style>\n                      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Montserrat:wght@600;700&family=Outfit:wght@500;700&family=Playfair+Display:ital,wght@0,600;1,600&family=Rochester&display=swap');\n\n                      .svg-text-above,\n                      .svg-text-below {\n                        text-anchor: middle;\n                        user-select: none;\n                      }\n                    </style>\n                  </defs>\n                  <!-- Background rect for high-res clean renders -->\n                  <rect width=\"500\" height=\"500\" fill=\"none\" id=\"svg-bg-rect\" />\n\n                  <!-- Selected Transparent Line Art Image -->\n                  <image id=\"svg-image-element\" x=\"120\" y=\"120\" width=\"260\" height=\"260\"\n                    preserveAspectRatio=\"xMidYMid meet\" />\n\n                  <!-- Curved Path Definitions -->\n                  <path id=\"above-text-path\" fill=\"none\" stroke=\"none\" />\n                  <path id=\"below-text-path\" fill=\"none\" stroke=\"none\" />\n\n                  <!-- Text Elements -->\n                  <g id=\"above-text-group\"></g>\n                  <g id=\"below-text-group\"></g>\n                </svg>\n\n              </div>\n            </div>\n\n            <!-- Right Controls Card -->\n            <div class=\"controls-panel\">\n\n              <!-- Typography Font Family -->\n              <div class=\"control-group\">\n                <label class=\"control-label\">Typography Style</label>\n                <select class=\"select-field\" id=\"font-family-select\" onchange=\"updateSvgLayout()\">\n                  <option value=\"'Outfit', sans-serif\">Outfit (Modern Geometric)</option>\n                  <option value=\"'Montserrat', sans-serif\">Montserrat (Bold Modern)</option>\n                  <option value=\"'Playfair Display', serif\">Playfair Display (Elegant Serif)</option>\n                  <option value=\"'Cinzel', serif\">Cinzel (Roman Calligraphy)</option>\n                  <option value=\"'Rochester', cursive\">Rochester (Classic Script)</option>\n                </select>\n              </div>\n\n              <!-- Size Selector -->\n              <div class=\"control-group\">\n                <label class=\"control-label\">Size</label>\n                <div class=\"size-selector\" style=\"margin-top:8px;\">\n                  <button class=\"size-option\" id=\"size-m\" onclick=\"setSize('m')\">M - 4 in</button>\n                  <button class=\"size-option active\" id=\"size-l\" onclick=\"setSize('l')\">L - 6 in</button>\n                  <button class=\"size-option\" id=\"size-xl\" onclick=\"setSize('xl')\">XL - 8 in</button>\n                  <button class=\"size-option\" id=\"size-xxl\" onclick=\"setSize('xxl')\">XXL - 10 in</button>\n                </div>\n              </div>\n\n              <!-- Text Arc Radius Slider -->\n              <div class=\"control-group\" id=\"radius-control-group\">\n                <label class=\"control-label\">\n                  Text Wrap Diameter\n                  <span class=\"value\" id=\"val-radius-slider\">310px</span>\n                </label>\n                <input type=\"range\" class=\"range-slider\" id=\"radius-slider\" min=\"125\" max=\"210\" value=\"155\"\n                  oninput=\"updateSvgLayout()\">\n              </div>\n\n              <!-- Above Text Customizer -->\n              <div style=\"border-top: 1px solid var(--border-color); padding-top: 20px;\" class=\"control-group\">\n                <label class=\"control-label\">Above Text (Optional)</label>\n                <input type=\"text\" class=\"input-field\" id=\"above-text-input\" placeholder=\"Type text here...\"\n                  oninput=\"updateSvgLayout()\">\n\n                <div class=\"toggle-row\" id=\"above-curve-toggle-row\">\n                  <div class=\"toggle-info\">\n                    <span class=\"toggle-name\">Curve Above Text</span>\n                    <span class=\"toggle-desc\">Wraps text over the top circle arc</span>\n                  </div>\n                  <label class=\"switch\">\n                    <input type=\"checkbox\" id=\"above-curved-toggle\" checked\n                      onchange=\"toggleRadiusControl(); updateSvgLayout();\">\n                    <span class=\"slider-toggle\"></span>\n                  </label>\n                </div>\n\n                <div class=\"control-group\" style=\"margin-top: 8px;\">\n                  <label class=\"control-label\">\n                    Above Font Size\n                    <span class=\"value\" id=\"val-above-size\">24px</span>\n                  </label>\n                  <input type=\"range\" class=\"range-slider\" id=\"above-size-slider\" min=\"14\" max=\"44\" value=\"24\"\n                    oninput=\"updateSvgLayout()\">\n                </div>\n              </div>\n\n              <!-- Below Text Customizer -->\n              <div style=\"border-top: 1px solid var(--border-color); padding-top: 20px;\" class=\"control-group\">\n                <label class=\"control-label\">Below Text (Optional)</label>\n                <input type=\"text\" class=\"input-field\" id=\"below-text-input\" placeholder=\"Type text here...\"\n                  oninput=\"updateSvgLayout()\">\n\n                <div class=\"toggle-row\" id=\"below-curve-toggle-row\">\n                  <div class=\"toggle-info\">\n                    <span class=\"toggle-name\">Curve Below Text</span>\n                    <span class=\"toggle-desc\">Wraps text under the bottom circle arc</span>\n                  </div>\n                  <label class=\"switch\">\n                    <input type=\"checkbox\" id=\"below-curved-toggle\" checked\n                      onchange=\"toggleRadiusControl(); updateSvgLayout();\">\n                    <span class=\"slider-toggle\"></span>\n                  </label>\n                </div>\n\n                <div class=\"control-group\" style=\"margin-top: 8px;\">\n                  <label class=\"control-label\">\n                    Below Font Size\n                    <span class=\"value\" id=\"val-below-size\">24px</span>\n                  </label>\n                  <input type=\"range\" class=\"range-slider\" id=\"below-size-slider\" min=\"14\" max=\"44\" value=\"24\"\n                    oninput=\"updateSvgLayout()\">\n                </div>\n              </div>\n\n              <div class=\"button-row\">\n                <button class=\"btn btn-secondary\" onclick=\"navigateToStep(2)\">Back to Styles</button>\n                <button class=\"btn btn-primary\" onclick=\"proceedToMockups()\">\n                  Apply to Mockups\n                  <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                    stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                    <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M9 5l7 7-7 7\" />\n                  </svg>\n                </button>\n              </div>\n\n            </div>\n          </div>\n        </div>\n      </div>\n\n      <!-- STEP 4: Product Mockup previews & Export -->\n      <div class=\"step-content locked\" id=\"step-pane-4\">\n        <div class=\"glass-panel\">\n          <h2 style=\"font-family:'Montserrat',sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 24px;\">Your\n            Product Mockups</h2>\n\n          <div class=\"mockups-grid\" id=\"mockups-container\">\n            <!-- Mockup cards loaded dynamically -->\n          </div>\n\n          <div class=\"export-options-bar\">\n            <button class=\"btn btn-primary\" onclick=\"restartWorkflow()\">\n              Start New Design\n              <svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"\n                stroke-width=\"2\" style=\"width:14px;height:14px;\">\n                <path stroke-linecap=\"round\" stroke-linejoin=\"round\"\n                  d=\"M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18\" />\n              </svg>\n            </button>\n          </div>\n\n          <div class=\"button-row\" style=\"margin-top: 40px;\">\n            <button class=\"btn btn-secondary\" onclick=\"navigateToStep(3)\">Back to Customizer</button>\n          </div>\n        </div>\n      </div>\n\n    </div>\n  </div>\n\n  <!-- Loading Overlay -->\n  <div class=\"loading-overlay\" id=\"loading-overlay\">\n    <div class=\"progress-shell\">\n      <div class=\"loading-text\" id=\"loading-text\">Generating your line art...</div>\n      <div class=\"progress-track\"><div class=\"progress-bar\" id=\"loading-progress-bar\" style=\"width:0%\"></div></div>\n    </div>\n  </div>\n\n  <!-- Temporary Canvas for operations -->\n  <canvas id=\"hidden-canvas\" class=\"hidden\"></canvas></div>";
 
     // State Variables
     let currentStep = 1;
     let sourceImage = null;      // Selected HTMLImageElement
     let sourceImageDataUrl = "";
     let sourceFileName = "";
+    let cropState = { zoom: 1, x: 0, y: 0 };
+    let cropPointers = new Map();
+    let cropGesture = null;
+    let loadingProgressTimer = null;
+    let loadingProgressValue = 0;
     let generatedLineArtVariants = []; // Stores generated line art canvases
     let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
     let currentInkColor = "black";
     let selectedSize = 'l'; // m, l, xl, xxl
-    let fullscreenBodyOverflow = "";
     let savedDesignId = "";
+    let finalDesignImageUrl = "";
+    let isSavingCartDesign = false;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
+    const LOADING_MESSAGE = "Generating your line art...";
 
     // Constants
     const INK_COLORS = {
@@ -44,6 +51,160 @@
       xl: 180,
       xxl: 200
     };
+
+    function getShopifyProductForms() {
+      return Array.from(document.querySelectorAll('form[action*="/cart/add"]'));
+    }
+
+    function ensureCartPropertyInputs() {
+      const fields = [
+        "Design Preview",
+        "Design ID",
+        "Ink Color",
+        "Above Text",
+        "Below Text",
+        "Stamp Size"
+      ];
+
+      getShopifyProductForms().forEach((form) => {
+        fields.forEach((field) => {
+          const name = `properties[${field}]`;
+          let input = Array.from(form.elements).find((el) => el.name === name);
+          if (!input) {
+            input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.dataset.lineArtProperty = field;
+            form.appendChild(input);
+          }
+        });
+      });
+    }
+
+    function setCartProperty(name, value) {
+      getShopifyProductForms().forEach((form) => {
+        const inputName = `properties[${name}]`;
+        let input = Array.from(form.elements).find((el) => el.name === inputName);
+        if (!input) {
+          input = document.createElement("input");
+          input.type = "hidden";
+          input.name = inputName;
+          input.dataset.lineArtProperty = name;
+          form.appendChild(input);
+        }
+        input.value = value || "";
+      });
+    }
+
+    function syncCartProperties() {
+      ensureCartPropertyInputs();
+      setCartProperty("Design Preview", finalDesignImageUrl);
+      setCartProperty("Design ID", savedDesignId);
+      setCartProperty("Ink Color", currentInkColor);
+      setCartProperty("Above Text", document.getElementById("above-text-input")?.value || "");
+      setCartProperty("Below Text", document.getElementById("below-text-input")?.value || "");
+      setCartProperty("Stamp Size", selectedSize.toUpperCase());
+    }
+
+    function markCartDesignChanged() {
+      finalDesignImageUrl = "";
+      syncCartProperties();
+    }
+
+    function renderFinalDesignDataUrl() {
+      const svgElement = document.getElementById("artwork-svg");
+      if (!svgElement) return Promise.resolve("");
+      document.getElementById("svg-bg-rect").setAttribute("fill", "none");
+
+      return svgToImage(svgElement).then((img) => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 1000;
+        canvas.height = 1000;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/png");
+      });
+    }
+
+    async function saveFinalDesignForCart() {
+      if (!sourceImageDataUrl || !selectedVariant) return false;
+      if (isSavingCartDesign) return false;
+
+      isSavingCartDesign = true;
+      try {
+        updateSvgLayout();
+        const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
+        const finalDesignDataUrl = await renderFinalDesignDataUrl();
+        const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            originalImageDataUrl: sourceImageDataUrl,
+            chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
+            finalDesignDataUrl,
+            settings: {
+              sourceFileName,
+              selectedSize,
+              inkColor: currentInkColor,
+              aboveText: document.getElementById("above-text-input")?.value || "",
+              belowText: document.getElementById("below-text-input")?.value || ""
+            }
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || "Design save failed.");
+        }
+
+        savedDesignId = data.designId || savedDesignId;
+        finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
+        syncCartProperties();
+        return Boolean(finalDesignImageUrl);
+      } catch (err) {
+        console.warn("Final design save skipped:", err);
+        return false;
+      } finally {
+        isSavingCartDesign = false;
+      }
+    }
+
+    function attachShopifyCartBridge() {
+      ensureCartPropertyInputs();
+      getShopifyProductForms().forEach((form) => {
+        if (form.dataset.lineArtBridgeReady === "true") return;
+        form.dataset.lineArtBridgeReady = "true";
+        form.addEventListener("submit", async (event) => {
+          if (form.dataset.lineArtSubmitting === "true" || !selectedVariant) return;
+          syncCartProperties();
+          if (finalDesignImageUrl) return;
+
+          event.preventDefault();
+          event.stopPropagation();
+          setLoading(true, "Saving your custom design...", null, 35);
+          const saved = await saveFinalDesignForCart();
+          setLoading(false, "", null);
+
+          if (!saved) {
+            alert("Please finish your custom line art before adding this product to cart.");
+            return;
+          }
+
+          form.dataset.lineArtSubmitting = "true";
+          if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+          setTimeout(() => {
+            form.dataset.lineArtSubmitting = "false";
+          }, 1000);
+        }, true);
+      });
+    }
 
     function setSize(key) {
       selectedSize = key;
@@ -133,6 +294,9 @@
       }
     });
 
+    initCropCanvas();
+    initMobileStepSwipe();
+
     function triggerFileSelect() {
       fileInput.click();
     }
@@ -152,31 +316,310 @@
         img.onload = () => {
           sourceImage = img;
           sourceImageDataUrl = e.target.result;
-          document.getElementById("upload-preview").src = sourceImageDataUrl;
+          resetCropControls();
+          updateCropPreview();
           document.getElementById("upload-preview-card").classList.remove("hidden");
           document.getElementById("btn-process-image").removeAttribute("disabled");
-          document.getElementById("upload-status-text").textContent = "Photo uploaded successfully!";
+          document.getElementById("upload-status-text").textContent = "Photo uploaded. Adjust crop if needed.";
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
 
-    function setLoading(isLoading, text = "Loading...", targetSelector) {
-      const globalOverlay = document.getElementById("loading-overlay");
+    function resetCropControls() {
+      cropState = { zoom: 1, x: 0, y: 0 };
+      cropPointers.clear();
+      cropGesture = null;
+    }
+
+    function getCropSettings() {
+      return cropState;
+    }
+
+    function clampCropState() {
+      cropState.zoom = Math.max(1, Math.min(4, cropState.zoom));
+      cropState.x = Math.max(-1, Math.min(1, cropState.x));
+      cropState.y = Math.max(-1, Math.min(1, cropState.y));
+    }
+
+    function getCropMetrics(size) {
+      const zoom = cropState.zoom;
+      const coverScale = Math.max(size / sourceImage.width, size / sourceImage.height) * zoom;
+      const drawW = sourceImage.width * coverScale;
+      const drawH = sourceImage.height * coverScale;
+      return {
+        drawW,
+        drawH,
+        maxX: Math.max(0, (drawW - size) / 2),
+        maxY: Math.max(0, (drawH - size) / 2)
+      };
+    }
+
+    function drawCropToCanvas(canvas, outputSize) {
+      if (!sourceImage || !canvas) return null;
+      const size = outputSize || canvas.width || 520;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const { drawW, drawH, maxX, maxY } = getCropMetrics(size);
+      const drawX = (size - drawW) / 2 + cropState.x * maxX;
+      const drawY = (size - drawH) / 2 + cropState.y * maxY;
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(sourceImage, drawX, drawY, drawW, drawH);
+      return canvas;
+    }
+
+    function cropPointDistance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function cropCenter(points) {
+      return {
+        x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+        y: points.reduce((sum, point) => sum + point.y, 0) / points.length
+      };
+    }
+
+    function beginCropGesture() {
+      const points = Array.from(cropPointers.values());
+      if (!points.length) {
+        cropGesture = null;
+        return;
+      }
+      cropGesture = {
+        points,
+        center: cropCenter(points),
+        distance: points.length > 1 ? cropPointDistance(points[0], points[1]) : 1,
+        x: cropState.x,
+        y: cropState.y,
+        zoom: cropState.zoom
+      };
+    }
+
+    function applyCropGesture() {
+      if (!cropGesture || !sourceImage) return;
+      const canvas = document.getElementById("crop-canvas");
+      const points = Array.from(cropPointers.values());
+      if (!canvas || !points.length) return;
+
+      const size = canvas.getBoundingClientRect().width || 520;
+      const center = cropCenter(points);
+      if (points.length > 1 && cropGesture.points.length > 1) {
+        const distance = cropPointDistance(points[0], points[1]) || cropGesture.distance;
+        cropState.zoom = cropGesture.zoom * (distance / cropGesture.distance);
+      }
+
+      clampCropState();
+      const { maxX, maxY } = getCropMetrics(size);
+      cropState.x = cropGesture.x + (center.x - cropGesture.center.x) / (maxX || size);
+      cropState.y = cropGesture.y + (center.y - cropGesture.center.y) / (maxY || size);
+      clampCropState();
+      updateCropPreview();
+    }
+
+    function initCropCanvas() {
+      const canvas = document.getElementById("crop-canvas");
+      if (!canvas) return;
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (!sourceImage) return;
+        event.preventDefault();
+        canvas.setPointerCapture(event.pointerId);
+        cropPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        canvas.classList.add("is-dragging");
+        beginCropGesture();
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (!cropPointers.has(event.pointerId)) return;
+        cropPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        applyCropGesture();
+      });
+
+      ["pointerup", "pointercancel"].forEach((type) => {
+        canvas.addEventListener(type, (event) => {
+          cropPointers.delete(event.pointerId);
+          if (!cropPointers.size) {
+            canvas.classList.remove("is-dragging");
+            cropGesture = null;
+          } else {
+            beginCropGesture();
+          }
+        });
+      });
+
+      canvas.addEventListener("wheel", (event) => {
+        if (!sourceImage) return;
+        event.preventDefault();
+        cropState.zoom *= event.deltaY < 0 ? 1.08 : 0.92;
+        clampCropState();
+        updateCropPreview();
+      }, { passive: false });
+
+      canvas.addEventListener("dblclick", () => {
+        resetCropControls();
+        updateCropPreview();
+      });
+    }
+
+    function initMobileStepSwipe() {
+      const root = document.querySelector(".app-container");
+      if (!root) return;
+
+      let start = null;
+      const ignored = "button,input,select,textarea,a,.crop-canvas,.variant-card,.mockup-card";
+
+      root.addEventListener("touchstart", (event) => {
+        if (window.innerWidth > 768 || currentStep <= 1 || event.touches.length !== 1 || event.target.closest(ignored)) {
+          start = null;
+          return;
+        }
+        const touch = event.touches[0];
+        start = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+      }, { passive: true });
+
+      root.addEventListener("touchend", (event) => {
+        if (!start || !event.changedTouches.length) return;
+        const touch = event.changedTouches[0];
+        const dx = touch.clientX - start.x;
+        const dy = touch.clientY - start.y;
+        const elapsed = Date.now() - start.t;
+        start = null;
+
+        if (dx > 80 && Math.abs(dy) < 45 && elapsed < 900) {
+          navigateToStep(currentStep - 1);
+        }
+      }, { passive: true });
+
+      root.addEventListener("touchcancel", () => {
+        start = null;
+      }, { passive: true });
+    }
+
+    function updateCropPreview() {
+      drawCropToCanvas(document.getElementById("crop-canvas"), 520);
+    }
+
+    function getCroppedImageDataUrl() {
+      const canvas = document.createElement("canvas");
+      drawCropToCanvas(canvas, 1024);
+      return canvas.toDataURL("image/jpeg", 0.92);
+    }
+
+    function updateProgressUI(scope, progress, text) {
+      const clamped = Math.max(0, Math.min(100, Math.round(progress || 0)));
+      const bar = scope && scope.querySelector(".progress-bar");
+      const label = scope && scope.querySelector(".loading-text");
+      if (bar) bar.style.width = `${clamped}%`;
+      if (label) label.textContent = LOADING_MESSAGE;
+    }
+
+    function getLoadingOverlay() {
+      const overlay = document.getElementById("loading-overlay");
+      if (!overlay) return null;
+
+      if (overlay.parentElement !== document.body) {
+        document.body.appendChild(overlay);
+      }
+
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.zIndex = "2147483647";
+      overlay.style.flexDirection = "column";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.gap = "20px";
+      overlay.style.background = "rgba(255,255,255,.92)";
+      overlay.style.backdropFilter = "blur(4px)";
+
+      const shell = overlay.querySelector(".progress-shell");
+      if (shell) {
+        shell.style.width = "min(280px, calc(100% - 32px))";
+        shell.style.display = "grid";
+        shell.style.gap = "12px";
+        shell.style.textAlign = "center";
+      }
+
+      const track = overlay.querySelector(".progress-track");
+      if (track) {
+        track.style.height = "8px";
+        track.style.background = "#e5e7eb";
+        track.style.borderRadius = "999px";
+        track.style.overflow = "hidden";
+      }
+
+      const bar = overlay.querySelector(".progress-bar");
+      if (bar) {
+        bar.style.height = "100%";
+        bar.style.background = "var(--accent, #111827)";
+        bar.style.borderRadius = "inherit";
+        bar.style.transition = "width .25s ease";
+      }
+
+      const label = overlay.querySelector(".loading-text");
+      if (label) {
+        label.style.fontSize = "15px";
+        label.style.fontWeight = "600";
+        label.style.color = "var(--text-primary, #111827)";
+      }
+
+      return overlay;
+    }
+
+    function advanceGlobalProgress(progress) {
+      const globalOverlay = getLoadingOverlay();
+      loadingProgressValue = Math.max(loadingProgressValue, progress || 0);
+      updateProgressUI(globalOverlay, loadingProgressValue, LOADING_MESSAGE);
+
+      if (loadingProgressTimer) return;
+      loadingProgressTimer = setInterval(() => {
+        const cap = loadingProgressValue < 70 ? 78 : 94;
+        const step = loadingProgressValue < 70 ? 1.1 : 0.35;
+        loadingProgressValue = Math.min(cap, loadingProgressValue + step);
+        updateProgressUI(globalOverlay, loadingProgressValue, LOADING_MESSAGE);
+      }, 450);
+    }
+
+    function stopGlobalProgress() {
+      if (loadingProgressTimer) clearInterval(loadingProgressTimer);
+      loadingProgressTimer = null;
+      loadingProgressValue = 0;
+    }
+
+    function setLoading(isLoading, text = "Loading...", targetSelector, progress = 0) {
+      const globalOverlay = getLoadingOverlay();
       const globalText = document.getElementById("loading-text");
 
       if (!targetSelector) {
-        if (globalText) globalText.textContent = text;
-        if (globalOverlay) globalOverlay.classList.toggle("active", isLoading);
+        if (globalText) globalText.textContent = LOADING_MESSAGE;
+        if (globalOverlay) {
+          globalOverlay.classList.toggle("active", isLoading);
+          globalOverlay.style.display = isLoading ? "flex" : "none";
+          if (isLoading) {
+            advanceGlobalProgress(progress);
+          } else {
+            stopGlobalProgress();
+            updateProgressUI(globalOverlay, 0, LOADING_MESSAGE);
+          }
+        }
         return;
       }
 
       const target = document.querySelector(targetSelector);
       if (!target) {
       // Use the main overlay if the requested target is unavailable.
-        if (globalText) globalText.textContent = text;
-        if (globalOverlay) globalOverlay.classList.toggle("active", isLoading);
+        if (globalText) globalText.textContent = LOADING_MESSAGE;
+        if (globalOverlay) {
+          globalOverlay.classList.toggle("active", isLoading);
+          globalOverlay.style.display = isLoading ? "flex" : "none";
+          if (isLoading) advanceGlobalProgress(progress);
+          else stopGlobalProgress();
+        }
         return;
       }
 
@@ -189,35 +632,40 @@
         if (!overlay) {
           overlay = document.createElement('div');
           overlay.className = 'section-loading-overlay';
-          overlay.innerHTML = `<div class="spinner-ring"></div><div class="loading-text">${text}</div>`;
+          overlay.innerHTML = `<div class="progress-shell"><div class="loading-text">${LOADING_MESSAGE}</div><div class="progress-track"><div class="progress-bar" style="width:0%"></div></div></div>`;
           target.appendChild(overlay);
         } else {
-          const txt = overlay.querySelector('.loading-text');
-          if (txt) txt.textContent = text;
           overlay.style.display = 'flex';
         }
+        updateProgressUI(overlay, progress, LOADING_MESSAGE);
       } else {
         const overlay = target.querySelector('.section-loading-overlay');
         if (overlay) overlay.remove();
       }
     }
 
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function nextPaint() {
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
     // Step Navigation
     function navigateToStep(stepNum) {
-      // Scroll to the requested step pane only if it's revealed (not locked)
       const pane = document.getElementById(`step-pane-${stepNum}`);
-      if (!pane || pane.classList.contains('locked')) return;
+      if (!pane) return;
+      document.querySelectorAll('.step-content').forEach((stepPane) => {
+        stepPane.classList.add('locked');
+      });
+      pane.classList.remove('locked');
       pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
       currentStep = stepNum;
     }
 
     function revealStep(stepNum) {
-      const pane = document.getElementById(`step-pane-${stepNum}`);
-      if (!pane) return;
-      pane.classList.remove('locked');
-      // small delay then scroll into view
-      setTimeout(() => pane.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
-      currentStep = stepNum;
+      navigateToStep(stepNum);
     }
 
     function toggleRadiusControl() {
@@ -236,19 +684,26 @@
     async function processSourceImage() {
       if (!sourceImage) return;
 
-      setLoading(true, "Analyzing image & generating line arts...", "#step-pane-1 .glass-panel");
+      const loadingStartedAt = Date.now();
+      setLoading(true, LOADING_MESSAGE, null, 8);
+      await nextPaint();
 
       try {
+        const croppedImageDataUrl = getCroppedImageDataUrl();
+        sourceImageDataUrl = croppedImageDataUrl;
+        setLoading(true, LOADING_MESSAGE, null, 18);
+
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            imageDataUrl: sourceImageDataUrl || await fileToDataUrl(fileInput.files[0])
+            imageDataUrl: croppedImageDataUrl || await fileToDataUrl(fileInput.files[0])
           })
         });
 
+        setLoading(true, LOADING_MESSAGE, null, 58);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(data.detail || data.error || data.message || "Generation failed.");
@@ -259,12 +714,15 @@
           throw new Error("No generated images were returned.");
         }
 
+        setLoading(true, LOADING_MESSAGE, null, 70);
         await renderGeneratedVariants(imageUrls);
+        setLoading(true, LOADING_MESSAGE, null, 100);
+        await sleep(Math.max(250, 700 - (Date.now() - loadingStartedAt)));
       } catch (err) {
         console.warn(err);
         alert("Could not generate line art variants. Please try another image.");
       } finally {
-        setLoading(false, "", "#step-pane-1 .glass-panel");
+        setLoading(false, "", null);
       }
     }
 
@@ -305,6 +763,7 @@
       const variantNames = ["Minimalist Outline", "Stylized Contour", "Ink Detail Sketch", "Contrast Silhouette"];
 
       for (let index = 0; index < urls.length; index++) {
+        setLoading(true, LOADING_MESSAGE, null, 70 + Math.round((index / urls.length) * 24));
         const img = await loadImageUrl(urls[index]);
         const lineArt = cleanLineArt(img);
         generatedLineArtVariants[index] = lineArt;
@@ -322,7 +781,6 @@
           </div>
           <div class="variant-preview-container">
             <img src="${displayUrl}" alt="${variantNames[index] || `Variant ${index + 1}`}">
-            <button class="variant-fullscreen-btn" onclick="openVariantFullscreen(event, '${displayUrl}')" title="Open fullscreen">⛶</button>
           </div>
           <button class="variant-select-btn">Choose Variant</button>
         `;
@@ -382,7 +840,10 @@
           throw new Error(data.error || "Design save failed.");
         }
 
-        savedDesignId = data.designId || "";
+        if (!finalDesignImageUrl) {
+          savedDesignId = data.designId || "";
+          syncCartProperties();
+        }
       } catch (err) {
         console.warn("Design save skipped:", err);
       }
@@ -401,25 +862,10 @@
       updateSvgLayout();
     }
 
-    function setPreviewBg(theme) {
-      const container = document.getElementById("svg-container");
-      const btnTransparent = document.getElementById("btn-theme-transparent");
-      const btnWhite = document.getElementById("btn-theme-white");
-
-      if (theme === 'transparent') {
-        container.className = "svg-artwork-container checkerboard-bg";
-        btnTransparent.classList.add("active");
-        btnWhite.classList.remove("active");
-      } else {
-        container.className = "svg-artwork-container";
-        btnTransparent.classList.remove("active");
-        btnWhite.classList.add("active");
-      }
-    }
-
     // Dynamic SVG layout
     function updateSvgLayout() {
       if (!selectedVariant) return;
+      markCartDesignChanged();
 
       const inkColorHex = INK_HEX[currentInkColor] || INK_HEX.black;
 
@@ -533,11 +979,14 @@
         }
         belowGroup.appendChild(textElement);
       }
+      syncCartProperties();
     }
 
     // Step 4: Composing on backgrounds
     async function proceedToMockups() {
-      setLoading(true, "Composing designs onto merchandise templates...", "#step-pane-4 .glass-panel");
+      const loadingStartedAt = Date.now();
+      setLoading(true, LOADING_MESSAGE, null, 12);
+      await nextPaint();
 
       const container = document.getElementById("mockups-container");
       container.innerHTML = "";
@@ -549,6 +998,7 @@
         document.getElementById("svg-bg-rect").setAttribute("fill", "none");
 
         // Convert SVG to self-contained Overlay Image
+        setLoading(true, LOADING_MESSAGE, null, 25);
         const svgOverlayImg = await svgToImage(svgElement);
 
         let successCount = 0;
@@ -556,6 +1006,7 @@
         for (let i = 0; i < DEFAULT_BACKGROUNDS.length; i++) {
           const mockup = DEFAULT_BACKGROUNDS[i];
           try {
+            setLoading(true, LOADING_MESSAGE, null, 35 + Math.round((i / DEFAULT_BACKGROUNDS.length) * 55));
             const bgImg = await loadImageUrl(mockup.src);
             const resultUrl = await composeOverlayOnBackground(bgImg, svgOverlayImg, mockup);
 
@@ -566,7 +1017,6 @@
               <div class="mockup-title">${mockup.title}</div>
               <div class="mockup-image-container">
                 <img src="${resultUrl}" alt="${mockup.title}">
-                <button style="position:absolute; bottom:12px; right:12px; width:36px; height:36px; padding:0; font-size:16px; border-radius:50%; box-shadow:0 2px 10px rgba(0,0,0,0.15);" class="btn btn-secondary" onclick="openFullscreen('${resultUrl}')" title="Zoom Mockup">⛶</button>
               </div>
             `;
 
@@ -581,12 +1031,17 @@
           throw new Error("Could not fetch or composite mockup backgrounds. Check network connection.");
         }
 
+        setLoading(true, LOADING_MESSAGE, null, 94);
+        await saveFinalDesignForCart();
+
         // Reveal and scroll to the mockups pane
+        setLoading(true, LOADING_MESSAGE, null, 100);
+        await sleep(Math.max(250, 600 - (Date.now() - loadingStartedAt)));
         revealStep(4);
       } catch (err) {
         alert("Mockup composite failed: " + err.message);
       } finally {
-        setLoading(false, "", "#step-pane-4 .glass-panel");
+        setLoading(false, "", null);
       }
     }
 
@@ -677,6 +1132,7 @@
       sourceImageDataUrl = "";
       selectedVariant = null;
       savedDesignId = "";
+      finalDesignImageUrl = "";
       generatedLineArtVariants = [];
       document.getElementById("btn-process-image").setAttribute("disabled", "true");
       document.getElementById("upload-preview-card").classList.add("hidden");
@@ -684,6 +1140,8 @@
       document.getElementById("above-text-input").value = "";
       document.getElementById("below-text-input").value = "";
       document.getElementById("file-input").value = "";
+      resetCropControls();
+      syncCartProperties();
       // Scroll to top (upload step)
       navigateToStep(1);
     }
@@ -697,56 +1155,6 @@
         img.onerror = () => reject(new Error(`Failed to load image from URL: ${url}`));
         img.src = url;
       });
-    }
-
-    // Fullscreen Handlers
-    function showFullscreenImage(url) {
-      const overlay = document.getElementById("fullscreen-overlay");
-      const img = document.getElementById("fullscreen-img");
-      const viewport = window.visualViewport || window;
-      const viewportWidth = Math.floor(viewport.width || window.innerWidth);
-      const viewportHeight = Math.floor(viewport.height || window.innerHeight);
-      const padding = window.matchMedia("(max-width: 600px)").matches ? 24 : 32;
-
-      if (!overlay.classList.contains("active")) {
-        fullscreenBodyOverflow = document.body.style.overflow;
-      }
-      document.body.style.overflow = "hidden";
-      overlay.style.setProperty("--fullscreen-max-width", `${Math.max(1, viewportWidth - padding)}px`);
-      overlay.style.setProperty("--fullscreen-max-height", `${Math.max(1, viewportHeight - padding)}px`);
-      overlay.scrollTop = 0;
-      overlay.scrollLeft = 0;
-      img.style.width = "auto";
-      img.style.height = "auto";
-      img.onload = () => {
-        const viewportRatio = viewportWidth / viewportHeight;
-        const imageRatio = img.naturalWidth / img.naturalHeight;
-
-        if (imageRatio > viewportRatio) {
-          img.style.width = `min(100%, ${Math.max(1, viewportWidth - padding)}px)`;
-          img.style.height = "auto";
-        } else {
-          img.style.width = "auto";
-          img.style.height = `${Math.max(1, viewportHeight - padding)}px`;
-        }
-      };
-      img.src = url;
-      overlay.classList.add("active");
-    }
-
-    function openFullscreen(url) {
-      showFullscreenImage(url);
-    }
-
-    function closeFullscreen() {
-      document.getElementById("fullscreen-overlay").classList.remove("active");
-      document.body.style.overflow = fullscreenBodyOverflow;
-    }
-
-    function openVariantFullscreen(evt, dataUrl) {
-      // Prevent parent card click selecting variant when clicking fullscreen button
-      evt.stopPropagation();
-      showFullscreenImage(dataUrl);
     }
 
     /* Core Grayscale Image Processing Utilities */
@@ -1027,7 +1435,22 @@
       return max < 95 || (luma < 120 && max - min < 55);
     }
 
+    Object.assign(window, {
+      triggerFileSelect,
+      processSourceImage,
+      navigateToStep,
+      updateCropPreview,
+      setSize,
+      updateSvgLayout,
+      toggleRadiusControl,
+      proceedToMockups,
+      restartWorkflow
+    });
+
     // Initialize UI state
+    attachShopifyCartBridge();
+    setTimeout(attachShopifyCartBridge, 800);
+    setTimeout(attachShopifyCartBridge, 2000);
     try { setSize(selectedSize); } catch (e) { /* ignore if DOM not ready */ }
   
 })();

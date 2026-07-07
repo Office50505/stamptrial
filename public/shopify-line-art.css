@@ -38,56 +38,27 @@
       padding: 0;
     }
 .line-art-customizer-root {
-      background-color: var(--bg-app);
       color: var(--text-primary);
       font-family: 'Outfit', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
       -webkit-font-smoothing: antialiased;
     }
 .line-art-customizer-root .app-container {
-      max-width: 1280px;
       width: 100%;
       margin: 0 auto;
-      padding: 40px 24px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
+      padding: 0;
     }
-.line-art-customizer-root /* Header Section */
-    .app-header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-.line-art-customizer-root .app-header h1 {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      color: var(--text-primary);
-      margin-bottom: 8px;
-    }
-.line-art-customizer-root .app-subtitle {
-      color: var(--text-secondary);
-      font-size: 15px;
-      font-weight: 400;
-    }
-.line-art-customizer-root /* removed top progress bar per request */
-
-    /* Main Wizard Contents */
+.line-art-customizer-root /* Main Wizard Contents */
     .wizard-content-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
+      display: block;
+      width: 100%;
     }
 .line-art-customizer-root /* Step panes: default visible for step 1; other panes can be locked */
     .step-content {
       display: flex;
       flex-direction: column;
       animation: fadeIn var(--transition-normal);
-      gap: 24px;
-      margin-bottom: 24px;
+      gap: 16px;
+      margin: 0;
     }
 .line-art-customizer-root .step-content.locked { display: none !important; }
 
@@ -106,9 +77,9 @@
     .glass-panel {
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 32px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: none;
     }
 .line-art-customizer-root /* STEP 1: Upload Layout */
     .upload-step-layout {
@@ -170,6 +141,18 @@
       border-radius: var(--radius-sm);
       border: 1px solid var(--border-color);
     }
+.line-art-customizer-root .crop-canvas {
+      width: min(100%, 360px);
+      aspect-ratio: 1;
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      display: block;
+      touch-action: none;
+      cursor: grab;
+      user-select: none;
+    }
+.line-art-customizer-root .crop-canvas.is-dragging { cursor: grabbing; }
 .line-art-customizer-root .preview-card-info {
       font-size: 13px;
       color: var(--text-secondary);
@@ -177,18 +160,19 @@
 .line-art-customizer-root /* STEP 2: Variants Selection */
     .variants-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 24px;
-      margin-bottom: 32px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
     }
 .line-art-customizer-root .variant-card {
+      min-width: 0;
       background: #ffffff;
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 20px;
+      border-radius: 8px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 8px;
       cursor: pointer;
       position: relative;
       transition: all var(--transition-normal);
@@ -254,23 +238,6 @@
       height: 100%;
       object-fit: contain;
     }
-.line-art-customizer-root /* Variant fullscreen button overlay */
-    .variant-fullscreen-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.92);
-      border: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    }
 .line-art-customizer-root .variant-select-btn {
       width: 100%;
       padding: 10px;
@@ -300,8 +267,8 @@
       gap: 32px;
       align-items: start;
     }
-.line-art-customizer-root @media (max-width: 900px) {
-      .customize-layout {
+@media (max-width: 900px) {
+      .line-art-customizer-root .customize-layout {
         grid-template-columns: 1fr;
       }
     }
@@ -341,27 +308,6 @@
         linear-gradient(-45deg, transparent 75%, #fafafa 75%);
       background-size: 20px 20px;
       background-color: #ffffff;
-    }
-.line-art-customizer-root .preview-theme-toggle {
-      display: flex;
-      gap: 12px;
-      margin-top: 4px;
-    }
-.line-art-customizer-root .theme-toggle-btn {
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid var(--border-color);
-      background: #ffffff;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-.line-art-customizer-root .theme-toggle-btn.active {
-      background: var(--accent);
-      color: #ffffff;
-      border-color: var(--accent);
     }
 .line-art-customizer-root /* Controls Panel */
     .controls-panel {
@@ -554,18 +500,19 @@
 .line-art-customizer-root /* STEP 4: Mockup Layout */
     .mockups-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 24px;
-      margin-bottom: 40px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
     }
 .line-art-customizer-root .mockup-card {
+      min-width: 0;
       background: #ffffff;
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 16px;
+      border-radius: 8px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 8px;
       position: relative;
       transition: all var(--transition-normal);
       overflow: hidden;
@@ -602,20 +549,20 @@
     .export-options-bar {
       display: flex;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 12px;
       justify-content: center;
-      padding-top: 24px;
+      padding-top: 16px;
       border-top: 1px solid var(--border-color);
     }
 .line-art-customizer-root /* Buttons Style Layout */
     .button-row {
       display: flex;
-      gap: 16px;
-      margin-top: 32px;
+      gap: 12px;
+      margin-top: 20px;
       justify-content: space-between;
     }
 .line-art-customizer-root .btn {
-      padding: 12px 24px;
+      padding: 11px 18px;
       border-radius: var(--radius-md);
       font-size: 14px;
       font-weight: 600;
@@ -685,13 +632,24 @@
 .line-art-customizer-root .loading-overlay.active {
       display: flex;
     }
-.line-art-customizer-root .spinner-ring {
-      width: 48px;
-      height: 48px;
-      border: 3px solid #e2e8f0;
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+.line-art-customizer-root .progress-shell {
+      width: min(280px, calc(100% - 32px));
+      display: grid;
+      gap: 12px;
+      text-align: center;
+    }
+.line-art-customizer-root .progress-track {
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+.line-art-customizer-root .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: var(--accent);
+      border-radius: inherit;
+      transition: width 0.25s ease;
     }
 .line-art-customizer-root .loading-text {
       font-size: 15px;
@@ -703,52 +661,6 @@
       to {
         transform: rotate(360deg);
       }
-    }
-.line-art-customizer-root /* Fullscreen Viewer */
-    .fullscreen-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.98);
-      z-index: 10000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      overflow: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-    }
-.line-art-customizer-root .fullscreen-overlay.active {
-      display: flex;
-    }
-.line-art-customizer-root .fullscreen-image {
-      max-width: var(--fullscreen-max-width, calc(100vw - 32px));
-      max-height: var(--fullscreen-max-height, calc(100vh - 32px));
-      object-fit: contain;
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      touch-action: pan-x pan-y pinch-zoom;
-    }
-.line-art-customizer-root .fullscreen-close {
-      position: absolute;
-      top: 24px;
-      right: 24px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #ffffff;
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      font-size: 20px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color var(--transition-fast);
-    }
-.line-art-customizer-root .fullscreen-close:hover {
-      background: #f9fafb;
     }
 .line-art-customizer-root /* Utilities */
     .hidden {
@@ -767,38 +679,30 @@
       gap: 12px;
       border-radius: inherit;
     }
-.line-art-customizer-root @media (max-width: 600px) {
-      .app-container { padding: 20px; }
-.line-art-customizer-root .app-header h1 { font-size: 22px; }
+@media (max-width: 600px) {
+      .app-container { padding: 0; }
+.line-art-customizer-root .glass-panel { padding: 14px; border-radius: 8px; }
 .line-art-customizer-root .wizard-progress-container { display: none; }
-.line-art-customizer-root .variants-grid { grid-template-columns: 1fr; gap: 16px; }
-.line-art-customizer-root .mockups-grid { grid-template-columns: 1fr; gap: 16px; }
-.line-art-customizer-root .svg-artwork-container { max-width: 100%; min-height: 320px; }
+.line-art-customizer-root .variants-grid, .line-art-customizer-root .mockups-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.line-art-customizer-root .variant-card { padding: 10px; gap: 8px; }
+.line-art-customizer-root .variant-title { font-size: 12px; line-height: 1.2; }
+.line-art-customizer-root .variant-select-btn { padding: 8px 4px; font-size: 11px; }
+.line-art-customizer-root .mockup-card { padding: 10px; gap: 8px; }
+.line-art-customizer-root .mockup-title { font-size: 12px; line-height: 1.2; }
+.line-art-customizer-root .customize-layout { gap: 16px; }
+.line-art-customizer-root .canvas-panel { gap: 12px; }
+.line-art-customizer-root .svg-artwork-container { max-width: 100%; min-height: 0; }
 .line-art-customizer-root .controls-panel { gap: 12px; }
-.line-art-customizer-root .button-row { flex-direction: column-reverse; gap: 12px; }
+.line-art-customizer-root .control-group { gap: 8px; }
+.line-art-customizer-root .input-field, .line-art-customizer-root .select-field { padding: 10px 12px; font-size: 14px; }
+.line-art-customizer-root .toggle-row { padding: 8px 10px; }
+.line-art-customizer-root .toggle-name { font-size: 13px; }
+.line-art-customizer-root .toggle-desc { font-size: 10px; }
+.line-art-customizer-root .size-selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.line-art-customizer-root .size-option { padding: 10px 6px; font-size: 12px; }
+.line-art-customizer-root .button-row { flex-direction: column-reverse; gap: 10px; margin-top: 20px; }
 .line-art-customizer-root .preview-card img { max-height: 160px; }
-.line-art-customizer-root .fullscreen-overlay {
-        align-items: center;
-        justify-content: center;
-        padding:
-          max(12px, env(safe-area-inset-top))
-          max(10px, env(safe-area-inset-right))
-          max(12px, env(safe-area-inset-bottom))
-          max(10px, env(safe-area-inset-left));
-      }
-.line-art-customizer-root .fullscreen-image {
-        border-radius: 6px;
-        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-      }
-.line-art-customizer-root .fullscreen-close {
-        position: fixed;
-        top: max(12px, env(safe-area-inset-top));
-        right: max(12px, env(safe-area-inset-right));
-        width: 44px;
-        height: 44px;
-        z-index: 1;
-        font-size: 24px;
-      }
+.line-art-customizer-root .crop-canvas { width: 100%; }
     }
 .line-art-customizer-root .alert-banner {
       background: #f8fafc;
