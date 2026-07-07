@@ -21,6 +21,7 @@
     let savedDesignId = "";
     let finalDesignImageUrl = "";
     let isSavingCartDesign = false;
+    let cartDesignSavePromise = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating your line art...";
 
@@ -129,47 +130,53 @@
 
     async function saveFinalDesignForCart() {
       if (!sourceImageDataUrl || !selectedVariant) return false;
-      if (isSavingCartDesign) return false;
+      if (finalDesignImageUrl) return true;
+      if (cartDesignSavePromise) return cartDesignSavePromise;
 
-      isSavingCartDesign = true;
-      try {
-        updateSvgLayout();
-        const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
-        const finalDesignDataUrl = await renderFinalDesignDataUrl();
-        const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            originalImageDataUrl: sourceImageDataUrl,
-            chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
-            finalDesignDataUrl,
-            settings: {
-              sourceFileName,
-              selectedSize,
-              inkColor: currentInkColor,
-              aboveText: document.getElementById("above-text-input")?.value || "",
-              belowText: document.getElementById("below-text-input")?.value || ""
-            }
-          })
-        });
+      cartDesignSavePromise = (async () => {
+        isSavingCartDesign = true;
+        try {
+          updateSvgLayout();
+          const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
+          const finalDesignDataUrl = await renderFinalDesignDataUrl();
+          const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              originalImageDataUrl: sourceImageDataUrl,
+              chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
+              finalDesignDataUrl,
+              settings: {
+                sourceFileName,
+                selectedSize,
+                inkColor: currentInkColor,
+                aboveText: document.getElementById("above-text-input")?.value || "",
+                belowText: document.getElementById("below-text-input")?.value || ""
+              }
+            })
+          });
 
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || "Design save failed.");
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || "Design save failed.");
+          }
+
+          savedDesignId = data.designId || savedDesignId;
+          finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
+          syncCartProperties();
+          return Boolean(finalDesignImageUrl);
+        } catch (err) {
+          console.warn("Final design save skipped:", err);
+          return false;
+        } finally {
+          isSavingCartDesign = false;
+          cartDesignSavePromise = null;
         }
+      })();
 
-        savedDesignId = data.designId || savedDesignId;
-        finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
-        syncCartProperties();
-        return Boolean(finalDesignImageUrl);
-      } catch (err) {
-        console.warn("Final design save skipped:", err);
-        return false;
-      } finally {
-        isSavingCartDesign = false;
-      }
+      return cartDesignSavePromise;
     }
 
     function attachShopifyCartBridge() {
