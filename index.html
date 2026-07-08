@@ -1299,11 +1299,17 @@
       xl: 360,
       xxl: 420
     };
+    const SIZE_MAP_WITH_TEXT = {
+      m: 190,
+      l: 270,
+      xl: 315,
+      xxl: 330
+    };
     const SIZE_RADIUS = {
-      m: 125,
-      l: 155,
-      xl: 180,
-      xxl: 200
+      m: 135,
+      l: 170,
+      xl: 205,
+      xxl: 220
     };
 
     function getShopifyProductForms() {
@@ -1387,6 +1393,7 @@
       // Auto-adjust text wrap diameter (radius slider) for the chosen size
       const radiusEl = document.getElementById('radius-slider');
       if (radiusEl) {
+        radiusEl.max = 225;
         const rv = SIZE_RADIUS[key] || parseInt(radiusEl.value);
         radiusEl.value = rv;
         const display = document.getElementById('val-radius-slider');
@@ -1964,8 +1971,20 @@
       const svgImage = document.getElementById("svg-image-element");
       svgImage.setAttribute("href", transparentDataUrl);
 
-      // Fit and center the cropped line art bounds (size depends on selected size)
-      const maxFitSize = SIZE_MAP[selectedSize] || 300;
+      // Extract slider inputs
+      const fontFam = document.getElementById("font-family-select").value;
+      const textRadius = parseInt(document.getElementById("radius-slider").value);
+      const aboveTextVal = document.getElementById("above-text-input").value.trim().toUpperCase();
+      const belowTextVal = document.getElementById("below-text-input").value.trim().toUpperCase();
+      const aboveCurved = document.getElementById("above-curved-toggle").checked;
+      const belowCurved = document.getElementById("below-curved-toggle").checked;
+      const aboveSize = document.getElementById("above-size-slider").value;
+      const belowSize = document.getElementById("below-size-slider").value;
+      const hasText = Boolean(aboveTextVal || belowTextVal);
+
+      // Fit and center the artwork. Large sizes need extra breathing room for text arcs.
+      const fitMap = hasText ? SIZE_MAP_WITH_TEXT : SIZE_MAP;
+      const maxFitSize = fitMap[selectedSize] || 300;
       const scale = Math.min(maxFitSize / lineCanvas.width, maxFitSize / lineCanvas.height);
       const drawW = lineCanvas.width * scale;
       const drawH = lineCanvas.height * scale;
@@ -1976,16 +1995,6 @@
       svgImage.setAttribute("y", drawY);
       svgImage.setAttribute("width", drawW);
       svgImage.setAttribute("height", drawH);
-
-      // Extract slider inputs
-      const fontFam = document.getElementById("font-family-select").value;
-      const textRadius = parseInt(document.getElementById("radius-slider").value);
-      const aboveTextVal = document.getElementById("above-text-input").value.trim().toUpperCase();
-      const belowTextVal = document.getElementById("below-text-input").value.trim().toUpperCase();
-      const aboveCurved = document.getElementById("above-curved-toggle").checked;
-      const belowCurved = document.getElementById("below-curved-toggle").checked;
-      const aboveSize = document.getElementById("above-size-slider").value;
-      const belowSize = document.getElementById("below-size-slider").value;
 
       // Update slider value displays
       document.getElementById("val-radius-slider").textContent = `${textRadius * 2}px`;
