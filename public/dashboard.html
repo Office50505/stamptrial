@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Line Art Design Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-muted: #f9fafb;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #111827;
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(246, 247, 249, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+
+    .header-inner {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 18px 20px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input, select, button {
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    input {
+      width: min(320px, 70vw);
+      padding: 0 12px;
+    }
+
+    select { padding: 0 10px; }
+
+    button {
+      padding: 0 14px;
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    main {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .summary {
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-muted);
+    }
+
+    .title-row {
+      display: flex;
+      gap: 10px;
+      align-items: start;
+      justify-content: space-between;
+    }
+
+    .design-id {
+      font-size: 13px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .images {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .image-cell {
+      min-width: 0;
+      background: #ffffff;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .image-label {
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .image-wrap {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(45deg, #fafafa 25%, transparent 25%),
+        linear-gradient(-45deg, #fafafa 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #fafafa 75%),
+        linear-gradient(-45deg, transparent 75%, #fafafa 75%);
+      background-size: 18px 18px;
+      background-color: #ffffff;
+      overflow: hidden;
+    }
+
+    .image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .image-empty {
+      padding: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .image-meta {
+      min-height: 32px;
+      padding: 8px 10px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .settings {
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .setting {
+      min-width: 0;
+      padding: 9px 10px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .setting strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .status {
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      .images { grid-template-columns: 1fr; }
+      .settings { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>Line Art Design Dashboard</h1>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search design id, text, size">
+        <select id="limit">
+          <option value="50">Latest 50</option>
+          <option value="100" selected>Latest 100</option>
+          <option value="200">Latest 200</option>
+        </select>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="summary" id="summary">Loading designs...</div>
+    <div id="content" class="status">Loading...</div>
+  </main>
+
+  <script>
+    const sizeLabels = {
+      m: "M - 4 in",
+      l: "L - 6 in",
+      xl: "XL - 8 in",
+      xxl: "XXL - 10 in"
+    };
+
+    let designs = [];
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "Unknown date";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Unknown date";
+      return date.toLocaleString();
+    }
+
+    function normalizeSize(size) {
+      const key = String(size || "").toLowerCase();
+      return sizeLabels[key] || String(size || "Not saved").toUpperCase();
+    }
+
+    function imageCell(label, url) {
+      if (!url) {
+        return `
+          <div class="image-cell">
+            <div class="image-label">${label}</div>
+            <div class="image-wrap"><div class="image-empty">Not saved</div></div>
+            <div class="image-meta">-</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="image-cell">
+          <div class="image-label">${label}</div>
+          <a class="image-wrap" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+            <img src="${escapeHtml(url)}" alt="${label}" loading="lazy">
+          </a>
+          <div class="image-meta" data-image-meta>Loading dimensions...</div>
+        </div>
+      `;
+    }
+
+    function designMatches(design, query) {
+      if (!query) return true;
+      const settings = design.settings || {};
+      const haystack = [
+        design.designId,
+        settings.sourceFileName,
+        settings.selectedSize,
+        normalizeSize(settings.selectedSize),
+        settings.inkColor,
+        settings.aboveText,
+        settings.belowText
+      ].join(" ").toLowerCase();
+      return haystack.includes(query);
+    }
+
+    function render() {
+      const query = document.getElementById("search").value.trim().toLowerCase();
+      const filtered = designs.filter((design) => designMatches(design, query));
+      const content = document.getElementById("content");
+      document.getElementById("summary").textContent =
+        `${filtered.length} shown of ${designs.length} saved design${designs.length === 1 ? "" : "s"}`;
+
+      if (!filtered.length) {
+        content.className = "status";
+        content.textContent = designs.length ? "No designs match the current search." : "No saved designs found.";
+        return;
+      }
+
+      content.className = "grid";
+      content.innerHTML = filtered.map((design) => {
+        const settings = design.settings || {};
+        const finalStatus = design.finalDesignUrl ? "Final saved" : "Variant only";
+        return `
+          <article class="card">
+            <div class="card-head">
+              <div class="title-row">
+                <div class="design-id">${escapeHtml(design.designId || "No design id")}</div>
+                <div class="badge">${escapeHtml(normalizeSize(settings.selectedSize))}</div>
+              </div>
+              <div class="meta">
+                <span>${escapeHtml(formatDate(design.createdAt))}</span>
+                <span>${escapeHtml(finalStatus)}</span>
+              </div>
+            </div>
+            <div class="images">
+              ${imageCell("Original", design.originalImageUrl)}
+              ${imageCell("Chosen line art", design.chosenVariantUrl)}
+              ${imageCell("Final design", design.finalDesignUrl)}
+            </div>
+            <div class="settings">
+              <div class="setting"><strong>File</strong>${escapeHtml(settings.sourceFileName || "-")}</div>
+              <div class="setting"><strong>Size</strong>${escapeHtml(normalizeSize(settings.selectedSize))}</div>
+              <div class="setting"><strong>Ink</strong>${escapeHtml(settings.inkColor || "-")}</div>
+              <div class="setting"><strong>Variant</strong>${escapeHtml(settings.selectedVariantIndex ?? "-")}</div>
+              <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>
+              <div class="setting"><strong>Below Text</strong>${escapeHtml(settings.belowText || "-")}</div>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      hydrateImageMetadata();
+    }
+
+    function hydrateImageMetadata() {
+      document.querySelectorAll(".image-cell img").forEach((img) => {
+        const meta = img.closest(".image-cell").querySelector("[data-image-meta]");
+        const update = () => {
+          meta.textContent = img.naturalWidth && img.naturalHeight
+            ? `${img.naturalWidth} x ${img.naturalHeight}px`
+            : "Dimensions unavailable";
+        };
+        if (img.complete) {
+          update();
+        } else {
+          img.addEventListener("load", update, { once: true });
+          img.addEventListener("error", () => {
+            meta.textContent = "Could not load image";
+          }, { once: true });
+        }
+      });
+    }
+
+    async function loadDesigns() {
+      const limit = document.getElementById("limit").value;
+      const content = document.getElementById("content");
+      content.className = "status";
+      content.textContent = "Loading...";
+      document.getElementById("summary").textContent = "Loading designs...";
+
+      try {
+        const response = await fetch(`/api/designs?limit=${encodeURIComponent(limit)}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load designs.");
+        }
+        designs = Array.isArray(data.designs) ? data.designs : [];
+        render();
+      } catch (error) {
+        designs = [];
+        document.getElementById("summary").textContent = "Dashboard error";
+        content.className = "status";
+        content.textContent = error.message;
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", loadDesigns);
+    document.getElementById("limit").addEventListener("change", loadDesigns);
+    document.getElementById("search").addEventListener("input", render);
+    loadDesigns();
+  </script>
+</body>
+</html>

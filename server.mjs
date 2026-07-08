@@ -295,6 +295,34 @@ app.post("/api/save-design", async (req, res) => {
   }
 });
 
+app.get("/api/designs", async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 100));
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    const designs = await db.collection("designs")
+      .find({}, {
+        projection: {
+          _id: 0,
+          designId: 1,
+          originalImageUrl: 1,
+          chosenVariantUrl: 1,
+          finalDesignUrl: 1,
+          settings: 1,
+          createdAt: 1
+        }
+      })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .toArray();
+
+    res.json({ designs });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Could not load designs" });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Line art backend running on port ${port}`);
 });

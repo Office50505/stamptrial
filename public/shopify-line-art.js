@@ -1230,17 +1230,12 @@
           throw new Error("Could not fetch or composite mockup backgrounds. Check network connection.");
         }
 
-        setLoading(true, LOADING_MESSAGE, null, 94);
         await saveFinalDesignForCart();
 
-        // Reveal and scroll to the mockups pane
-        setLoading(true, LOADING_MESSAGE, null, 100);
-        await sleep(Math.max(250, 600 - (Date.now() - loadingStartedAt)));
+    
         revealStep(4);
       } catch (err) {
         alert("Mockup composite failed: " + err.message);
-      } finally {
-        setLoading(false, "", null);
       }
     }
 
