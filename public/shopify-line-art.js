@@ -303,6 +303,14 @@
         const display = document.getElementById('val-radius-slider');
         if (display) display.textContent = `${rv * 2}px`;
       }
+      const belowRadiusEl = document.getElementById('below-radius-slider');
+      if (belowRadiusEl) {
+        belowRadiusEl.max = 225;
+        const rv = SIZE_RADIUS[key] || parseInt(belowRadiusEl.value);
+        belowRadiusEl.value = rv;
+        const display = document.getElementById('val-below-radius-slider');
+        if (display) display.textContent = `${rv * 2}px`;
+      }
 
       scheduleThemeSizeSelectorSync(key);
       updateSvgLayout();
@@ -371,6 +379,7 @@
     });
 
     initSourceInputModeControls();
+    initSeparateRadiusControls();
     initCropCanvas();
     initMobileStepSwipe();
 
@@ -423,6 +432,34 @@
 
       previewCard.insertBefore(controls, canvas);
       setSourceInputMode(sourceInputMode);
+    }
+
+    function initSeparateRadiusControls() {
+      const aboveGroup = document.getElementById("radius-control-group");
+      const aboveSlider = document.getElementById("radius-slider");
+      const aboveValue = document.getElementById("val-radius-slider");
+      if (!aboveGroup || !aboveSlider || aboveGroup.dataset.separateRadiusReady === "true") return;
+
+      aboveGroup.dataset.separateRadiusReady = "true";
+      const aboveLabel = aboveGroup.querySelector(".control-label");
+      if (aboveLabel) {
+        aboveLabel.innerHTML = `Above Text Wrap Diameter <span class="value" id="val-radius-slider">${aboveValue?.textContent || ""}</span>`;
+      }
+      aboveSlider.max = 225;
+
+      const belowGroup = document.createElement("div");
+      belowGroup.className = "control-group";
+      belowGroup.id = "below-radius-control-group";
+      belowGroup.innerHTML = `
+        <label class="control-label">
+          Below Text Wrap Diameter
+          <span class="value" id="val-below-radius-slider"></span>
+        </label>
+        <input type="range" class="range-slider" id="below-radius-slider" min="125" max="225" value="${aboveSlider.value}">
+      `;
+
+      belowGroup.querySelector("#below-radius-slider").addEventListener("input", updateSvgLayout);
+      aboveGroup.insertAdjacentElement("afterend", belowGroup);
     }
 
     function setSourceInputMode(mode) {
@@ -821,12 +858,19 @@
     function toggleRadiusControl() {
       const aboveCurved = document.getElementById("above-curved-toggle").checked;
       const belowCurved = document.getElementById("below-curved-toggle").checked;
-      const controlGrp = document.getElementById("radius-control-group");
+      const aboveControl = document.getElementById("radius-control-group");
+      const belowControl = document.getElementById("below-radius-control-group");
 
-      if (aboveCurved || belowCurved) {
-        controlGrp.classList.remove("hidden");
+      if (aboveCurved) {
+        aboveControl?.classList.remove("hidden");
       } else {
-        controlGrp.classList.add("hidden");
+        aboveControl?.classList.add("hidden");
+      }
+
+      if (belowCurved) {
+        belowControl?.classList.remove("hidden");
+      } else {
+        belowControl?.classList.add("hidden");
       }
     }
 
@@ -1029,7 +1073,8 @@
 
       // Extract slider inputs
       const fontFam = document.getElementById("font-family-select").value;
-      const textRadius = parseInt(document.getElementById("radius-slider").value);
+      const aboveTextRadius = parseInt(document.getElementById("radius-slider").value);
+      const belowTextRadius = parseInt(document.getElementById("below-radius-slider")?.value || aboveTextRadius);
       const aboveTextVal = document.getElementById("above-text-input").value.trim().toUpperCase();
       const belowTextVal = document.getElementById("below-text-input").value.trim().toUpperCase();
       const aboveCurved = document.getElementById("above-curved-toggle").checked;
@@ -1053,17 +1098,19 @@
       svgImage.setAttribute("height", drawH);
 
       // Update slider value displays
-      document.getElementById("val-radius-slider").textContent = `${textRadius * 2}px`;
+      document.getElementById("val-radius-slider").textContent = `${aboveTextRadius * 2}px`;
+      const belowRadiusDisplay = document.getElementById("val-below-radius-slider");
+      if (belowRadiusDisplay) belowRadiusDisplay.textContent = `${belowTextRadius * 2}px`;
       document.getElementById("val-above-size").textContent = `${aboveSize}px`;
       document.getElementById("val-below-size").textContent = `${belowSize}px`;
 
       // Update paths
       // Above text curve path: clockwise circular arc left-to-right on top (sweep-flag = 1)
-      const dAbove = `M ${250 - textRadius},250 A ${textRadius},${textRadius} 0 0,1 ${250 + textRadius},250`;
+      const dAbove = `M ${250 - aboveTextRadius},250 A ${aboveTextRadius},${aboveTextRadius} 0 0,1 ${250 + aboveTextRadius},250`;
       document.getElementById("above-text-path").setAttribute("d", dAbove);
 
       // Below text curve path: counter-clockwise circular arc left-to-right on bottom (sweep-flag = 0)
-      const dBelow = `M ${250 - textRadius},250 A ${textRadius},${textRadius} 0 0,0 ${250 + textRadius},250`;
+      const dBelow = `M ${250 - belowTextRadius},250 A ${belowTextRadius},${belowTextRadius} 0 0,0 ${250 + belowTextRadius},250`;
       document.getElementById("below-text-path").setAttribute("d", dBelow);
 
       // ABOVE TEXT GROUP rendering

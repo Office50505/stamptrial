@@ -22,6 +22,9 @@
           {% if item.properties['Ink Color'] != blank %}
             <div class="line-art-cart-meta">Ink: {{ item.properties['Ink Color'] }}</div>
           {% endif %}
+          {% if item.properties['Stamp Size'] != blank %}
+            <div class="line-art-cart-meta">Size: {{ item.properties['Stamp Size'] }}</div>
+          {% endif %}
           {% if item.properties['Above Text'] != blank %}
             <div class="line-art-cart-meta">Above: {{ item.properties['Above Text'] }}</div>
           {% endif %}
