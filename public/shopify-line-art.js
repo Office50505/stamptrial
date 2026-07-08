@@ -701,18 +701,6 @@
         sourceImageDataUrl = sourceForProcessing;
         setLoading(true, LOADING_MESSAGE, null, 18);
 
-        const inputImage = await loadImageUrl(sourceForProcessing);
-        if (isMonochromeLogoInput(inputImage)) {
-          await renderGeneratedVariants(
-            [sourceImageDataUrl, sourceImageDataUrl, sourceImageDataUrl, sourceImageDataUrl],
-            CONTROLLED_LOGO_VARIANT_NAMES,
-            CONTROLLED_LOGO_VARIANT_PROFILES
-          );
-          setLoading(true, LOADING_MESSAGE, null, 100);
-          await sleep(Math.max(250, 700 - (Date.now() - loadingStartedAt)));
-          return;
-        }
-
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
           headers: {
@@ -775,14 +763,6 @@
         .filter(Boolean)
         .slice(0, 4);
     }
-
-    const CONTROLLED_LOGO_VARIANT_NAMES = ["Exact Logo Trace", "Clean Logo Trace", "Bold Logo Trace", "Heavy Logo Trace"];
-    const CONTROLLED_LOGO_VARIANT_PROFILES = [
-      { darkMax: 110, lightMin: 155, expandIterations: 0 },
-      { darkMax: 96, lightMin: 178, expandIterations: 0 },
-      { darkMax: 125, lightMin: 148, expandIterations: 1 },
-      { darkMax: 140, lightMin: 138, expandIterations: 2 }
-    ];
 
     async function renderGeneratedVariants(urls, variantNameOverrides, processingProfiles) {
       const container = document.getElementById("variants-container");
@@ -1496,17 +1476,6 @@
         lightRatio: lightPixels / visiblePixels,
         midRatio: midPixels / visiblePixels
       };
-    }
-
-    function isMonochromeLogoInput(image) {
-      const { imageData } = prepareImage(image);
-      const stats = getLogoRasterStats(imageData.data);
-
-      return stats.lowChromaRatio > 0.88 &&
-        stats.lightRatio > 0.28 &&
-        stats.darkRatio > 0.015 &&
-        stats.darkRatio < 0.62 &&
-        stats.midRatio < 0.38;
     }
 
     function shouldUseInvertedLogoExtraction(data) {
