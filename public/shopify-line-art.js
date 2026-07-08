@@ -649,6 +649,7 @@
       const ignored = "button,input,select,textarea,a,.crop-canvas,.variant-card,.mockup-card,.upload-zone";
 
       root.addEventListener("touchstart", (event) => {
+        const target = event.target;
         if (window.innerWidth > 768 || currentStep <= 1 || event.touches.length !== 1 || !target || target.closest(ignored)) {
           start = null;
           return;
