@@ -202,6 +202,51 @@
       border: 1px solid var(--border-color);
     }
 
+    .source-mode-selector {
+      width: min(100%, 360px);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      background: #f3f4f6;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+    }
+
+    .source-mode-option {
+      min-height: 36px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all var(--transition-fast);
+    }
+
+    .source-mode-option.active {
+      background: #ffffff;
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    .crop-canvas {
+      width: min(100%, 360px);
+      aspect-ratio: 1;
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      display: block;
+      touch-action: none;
+      cursor: default;
+      user-select: none;
+    }
+
+    .crop-canvas.crop-enabled { cursor: grab; }
+    .crop-canvas.is-dragging { cursor: grabbing; }
+
     .preview-card-info {
       font-size: 13px;
       color: var(--text-secondary);
@@ -969,7 +1014,11 @@
           </div>
 
           <div class="preview-card hidden" id="upload-preview-card">
-            <img id="upload-preview" src="" alt="Source preview">
+            <div class="source-mode-selector" id="source-mode-selector">
+              <button type="button" class="source-mode-option active" data-source-mode="whole">Whole logo</button>
+              <button type="button" class="source-mode-option" data-source-mode="crop">Crop image</button>
+            </div>
+            <canvas id="crop-canvas" class="crop-canvas" width="520" height="520" aria-label="Source preview"></canvas>
             <div class="preview-card-info" id="preview-filename">image.jpg</div>
           </div>
 
@@ -1217,6 +1266,10 @@
     let sourceImage = null;      // Selected HTMLImageElement
     let sourceImageDataUrl = "";
     let sourceFileName = "";
+    let sourceInputMode = "whole";
+    let cropState = { zoom: 1, x: 0, y: 0 };
+    let cropPointers = new Map();
+    let cropGesture = null;
     let generatedLineArtVariants = []; // Stores generated line art canvases
     let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
     let currentInkColor = "black";
@@ -1341,6 +1394,9 @@
       }
     });
 
+    initSourceInputModeControls();
+    initCropCanvas();
+
     function triggerFileSelect() {
       fileInput.click();
     }
@@ -1360,14 +1416,216 @@
         img.onload = () => {
           sourceImage = img;
           sourceImageDataUrl = e.target.result;
-          document.getElementById("upload-preview").src = sourceImageDataUrl;
+          resetCropControls();
+          setSourceInputMode("whole");
           document.getElementById("upload-preview-card").classList.remove("hidden");
           document.getElementById("btn-process-image").removeAttribute("disabled");
-          document.getElementById("upload-status-text").textContent = "Photo uploaded successfully!";
+          document.getElementById("upload-status-text").textContent = "Image uploaded. Choose whole logo or crop.";
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    }
+
+    function initSourceInputModeControls() {
+      document.querySelectorAll("[data-source-mode]").forEach((button) => {
+        button.addEventListener("click", () => setSourceInputMode(button.dataset.sourceMode));
+      });
+      setSourceInputMode(sourceInputMode);
+    }
+
+    function setSourceInputMode(mode) {
+      sourceInputMode = mode === "crop" ? "crop" : "whole";
+
+      document.querySelectorAll(".source-mode-option").forEach((button) => {
+        button.classList.toggle("active", button.dataset.sourceMode === sourceInputMode);
+      });
+
+      const canvas = document.getElementById("crop-canvas");
+      if (canvas) {
+        canvas.classList.toggle("crop-enabled", sourceInputMode === "crop");
+      }
+
+      updateSourcePreview();
+    }
+
+    function resetCropControls() {
+      cropState = { zoom: 1, x: 0, y: 0 };
+      cropPointers.clear();
+      cropGesture = null;
+    }
+
+    function clampCropState() {
+      cropState.zoom = Math.max(1, Math.min(4, cropState.zoom));
+      cropState.x = Math.max(-1, Math.min(1, cropState.x));
+      cropState.y = Math.max(-1, Math.min(1, cropState.y));
+    }
+
+    function getCropMetrics(size) {
+      const zoom = cropState.zoom;
+      const coverScale = Math.max(size / sourceImage.width, size / sourceImage.height) * zoom;
+      const drawW = sourceImage.width * coverScale;
+      const drawH = sourceImage.height * coverScale;
+      return {
+        drawW,
+        drawH,
+        maxX: Math.max(0, (drawW - size) / 2),
+        maxY: Math.max(0, (drawH - size) / 2)
+      };
+    }
+
+    function drawCropToCanvas(canvas, outputSize) {
+      if (!sourceImage || !canvas) return null;
+      const size = outputSize || canvas.width || 520;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const { drawW, drawH, maxX, maxY } = getCropMetrics(size);
+      const drawX = (size - drawW) / 2 + cropState.x * maxX;
+      const drawY = (size - drawH) / 2 + cropState.y * maxY;
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(sourceImage, drawX, drawY, drawW, drawH);
+      return canvas;
+    }
+
+    function drawWholeImageToCanvas(canvas, outputSize) {
+      if (!sourceImage || !canvas) return null;
+      const size = outputSize || canvas.width || 520;
+      const padding = Math.round(size * 0.06);
+      const fitSize = size - padding * 2;
+      const scale = Math.min(fitSize / sourceImage.width, fitSize / sourceImage.height);
+      const drawW = sourceImage.width * scale;
+      const drawH = sourceImage.height * scale;
+      const drawX = (size - drawW) / 2;
+      const drawY = (size - drawH) / 2;
+
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(sourceImage, drawX, drawY, drawW, drawH);
+      return canvas;
+    }
+
+    function cropPointDistance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function cropCenter(points) {
+      return {
+        x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+        y: points.reduce((sum, point) => sum + point.y, 0) / points.length
+      };
+    }
+
+    function beginCropGesture() {
+      if (sourceInputMode !== "crop") return;
+      const points = Array.from(cropPointers.values());
+      if (!points.length) {
+        cropGesture = null;
+        return;
+      }
+      cropGesture = {
+        points,
+        center: cropCenter(points),
+        distance: points.length > 1 ? cropPointDistance(points[0], points[1]) : 1,
+        x: cropState.x,
+        y: cropState.y,
+        zoom: cropState.zoom
+      };
+    }
+
+    function applyCropGesture() {
+      if (sourceInputMode !== "crop" || !cropGesture || !sourceImage) return;
+      const canvas = document.getElementById("crop-canvas");
+      const points = Array.from(cropPointers.values());
+      if (!canvas || !points.length) return;
+
+      const size = canvas.getBoundingClientRect().width || 520;
+      const center = cropCenter(points);
+      if (points.length > 1 && cropGesture.points.length > 1) {
+        const distance = cropPointDistance(points[0], points[1]) || cropGesture.distance;
+        cropState.zoom = cropGesture.zoom * (distance / cropGesture.distance);
+      }
+
+      clampCropState();
+      const { maxX, maxY } = getCropMetrics(size);
+      cropState.x = cropGesture.x + (center.x - cropGesture.center.x) / (maxX || size);
+      cropState.y = cropGesture.y + (center.y - cropGesture.center.y) / (maxY || size);
+      clampCropState();
+      updateSourcePreview();
+    }
+
+    function initCropCanvas() {
+      const canvas = document.getElementById("crop-canvas");
+      if (!canvas) return;
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (!sourceImage || sourceInputMode !== "crop") return;
+        event.preventDefault();
+        canvas.setPointerCapture(event.pointerId);
+        cropPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        canvas.classList.add("is-dragging");
+        beginCropGesture();
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (!cropPointers.has(event.pointerId)) return;
+        cropPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        applyCropGesture();
+      });
+
+      ["pointerup", "pointercancel"].forEach((type) => {
+        canvas.addEventListener(type, (event) => {
+          cropPointers.delete(event.pointerId);
+          if (!cropPointers.size) {
+            canvas.classList.remove("is-dragging");
+            cropGesture = null;
+          } else {
+            beginCropGesture();
+          }
+        });
+      });
+
+      canvas.addEventListener("wheel", (event) => {
+        if (!sourceImage || sourceInputMode !== "crop") return;
+        event.preventDefault();
+        cropState.zoom *= event.deltaY < 0 ? 1.08 : 0.92;
+        clampCropState();
+        updateSourcePreview();
+      }, { passive: false });
+
+      canvas.addEventListener("dblclick", () => {
+        if (sourceInputMode !== "crop") return;
+        resetCropControls();
+        updateSourcePreview();
+      });
+    }
+
+    function updateSourcePreview() {
+      const canvas = document.getElementById("crop-canvas");
+      if (sourceInputMode === "crop") {
+        drawCropToCanvas(canvas, 520);
+      } else {
+        drawWholeImageToCanvas(canvas, 520);
+      }
+    }
+
+    function getProcessingImageDataUrl() {
+      const canvas = document.createElement("canvas");
+      if (sourceInputMode === "crop") {
+        drawCropToCanvas(canvas, 1024);
+      } else {
+        drawWholeImageToCanvas(canvas, 1024);
+      }
+      return canvas.toDataURL("image/jpeg", 0.92);
     }
 
     function setLoading(isLoading, text = "Loading...", targetSelector) {
@@ -1447,7 +1705,7 @@
       setLoading(true, "Analyzing image & generating line arts...", "#step-pane-1 .glass-panel");
 
       try {
-        const sourceForProcessing = sourceImageDataUrl || await fileToDataUrl(fileInput.files[0]);
+        const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
         sourceImageDataUrl = sourceForProcessing;
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
@@ -1894,6 +2152,8 @@
       document.getElementById("above-text-input").value = "";
       document.getElementById("below-text-input").value = "";
       document.getElementById("file-input").value = "";
+      setSourceInputMode("whole");
+      resetCropControls();
       // Scroll to top (upload step)
       navigateToStep(1);
     }

@@ -141,6 +141,33 @@
       border-radius: var(--radius-sm);
       border: 1px solid var(--border-color);
     }
+.line-art-customizer-root .source-mode-selector {
+      width: min(100%, 360px);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      background: #f3f4f6;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+    }
+.line-art-customizer-root .source-mode-option {
+      min-height: 36px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all var(--transition-fast);
+    }
+.line-art-customizer-root .source-mode-option.active {
+      background: #ffffff;
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
 .line-art-customizer-root .crop-canvas {
       width: min(100%, 360px);
       aspect-ratio: 1;
@@ -149,9 +176,10 @@
       border-radius: var(--radius-md);
       display: block;
       touch-action: none;
-      cursor: grab;
+      cursor: default;
       user-select: none;
     }
+.line-art-customizer-root .crop-canvas.crop-enabled { cursor: grab; }
 .line-art-customizer-root .crop-canvas.is-dragging { cursor: grabbing; }
 .line-art-customizer-root .preview-card-info {
       font-size: 13px;

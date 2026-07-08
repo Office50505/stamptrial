@@ -9,6 +9,7 @@
     let sourceImage = null;      // Selected HTMLImageElement
     let sourceImageDataUrl = "";
     let sourceFileName = "";
+    let sourceInputMode = "whole";
     let cropState = { zoom: 1, x: 0, y: 0 };
     let cropPointers = new Map();
     let cropGesture = null;
@@ -301,6 +302,7 @@
       }
     });
 
+    initSourceInputModeControls();
     initCropCanvas();
     initMobileStepSwipe();
 
@@ -324,14 +326,50 @@
           sourceImage = img;
           sourceImageDataUrl = e.target.result;
           resetCropControls();
-          updateCropPreview();
+          setSourceInputMode("whole");
           document.getElementById("upload-preview-card").classList.remove("hidden");
           document.getElementById("btn-process-image").removeAttribute("disabled");
-          document.getElementById("upload-status-text").textContent = "Photo uploaded. Adjust crop if needed.";
+          document.getElementById("upload-status-text").textContent = "Image uploaded. Choose whole logo or crop.";
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    }
+
+    function initSourceInputModeControls() {
+      const previewCard = document.getElementById("upload-preview-card");
+      const canvas = document.getElementById("crop-canvas");
+      if (!previewCard || !canvas || previewCard.dataset.sourceModeReady === "true") return;
+
+      previewCard.dataset.sourceModeReady = "true";
+      const controls = document.createElement("div");
+      controls.className = "source-mode-selector";
+      controls.innerHTML = `
+        <button type="button" class="source-mode-option active" data-source-mode="whole">Whole logo</button>
+        <button type="button" class="source-mode-option" data-source-mode="crop">Crop image</button>
+      `;
+
+      controls.querySelectorAll("[data-source-mode]").forEach((button) => {
+        button.addEventListener("click", () => setSourceInputMode(button.dataset.sourceMode));
+      });
+
+      previewCard.insertBefore(controls, canvas);
+      setSourceInputMode(sourceInputMode);
+    }
+
+    function setSourceInputMode(mode) {
+      sourceInputMode = mode === "crop" ? "crop" : "whole";
+
+      document.querySelectorAll(".source-mode-option").forEach((button) => {
+        button.classList.toggle("active", button.dataset.sourceMode === sourceInputMode);
+      });
+
+      const canvas = document.getElementById("crop-canvas");
+      if (canvas) {
+        canvas.classList.toggle("crop-enabled", sourceInputMode === "crop");
+      }
+
+      updateSourcePreview();
     }
 
     function resetCropControls() {
@@ -381,6 +419,28 @@
       return canvas;
     }
 
+    function drawWholeImageToCanvas(canvas, outputSize) {
+      if (!sourceImage || !canvas) return null;
+      const size = outputSize || canvas.width || 520;
+      const padding = Math.round(size * 0.06);
+      const fitSize = size - padding * 2;
+      const scale = Math.min(fitSize / sourceImage.width, fitSize / sourceImage.height);
+      const drawW = sourceImage.width * scale;
+      const drawH = sourceImage.height * scale;
+      const drawX = (size - drawW) / 2;
+      const drawY = (size - drawH) / 2;
+
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(sourceImage, drawX, drawY, drawW, drawH);
+      return canvas;
+    }
+
     function cropPointDistance(a, b) {
       return Math.hypot(a.x - b.x, a.y - b.y);
     }
@@ -393,6 +453,7 @@
     }
 
     function beginCropGesture() {
+      if (sourceInputMode !== "crop") return;
       const points = Array.from(cropPointers.values());
       if (!points.length) {
         cropGesture = null;
@@ -409,7 +470,7 @@
     }
 
     function applyCropGesture() {
-      if (!cropGesture || !sourceImage) return;
+      if (sourceInputMode !== "crop" || !cropGesture || !sourceImage) return;
       const canvas = document.getElementById("crop-canvas");
       const points = Array.from(cropPointers.values());
       if (!canvas || !points.length) return;
@@ -434,7 +495,7 @@
       if (!canvas) return;
 
       canvas.addEventListener("pointerdown", (event) => {
-        if (!sourceImage) return;
+        if (!sourceImage || sourceInputMode !== "crop") return;
         event.preventDefault();
         canvas.setPointerCapture(event.pointerId);
         cropPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -461,7 +522,7 @@
       });
 
       canvas.addEventListener("wheel", (event) => {
-        if (!sourceImage) return;
+        if (!sourceImage || sourceInputMode !== "crop") return;
         event.preventDefault();
         cropState.zoom *= event.deltaY < 0 ? 1.08 : 0.92;
         clampCropState();
@@ -469,8 +530,9 @@
       }, { passive: false });
 
       canvas.addEventListener("dblclick", () => {
+        if (sourceInputMode !== "crop") return;
         resetCropControls();
-        updateCropPreview();
+        updateSourcePreview();
       });
     }
 
@@ -508,13 +570,26 @@
       }, { passive: true });
     }
 
-    function updateCropPreview() {
-      drawCropToCanvas(document.getElementById("crop-canvas"), 520);
+    function updateSourcePreview() {
+      const canvas = document.getElementById("crop-canvas");
+      if (sourceInputMode === "crop") {
+        drawCropToCanvas(canvas, 520);
+      } else {
+        drawWholeImageToCanvas(canvas, 520);
+      }
     }
 
-    function getCroppedImageDataUrl() {
+    function updateCropPreview() {
+      updateSourcePreview();
+    }
+
+    function getProcessingImageDataUrl() {
       const canvas = document.createElement("canvas");
-      drawCropToCanvas(canvas, 1024);
+      if (sourceInputMode === "crop") {
+        drawCropToCanvas(canvas, 1024);
+      } else {
+        drawWholeImageToCanvas(canvas, 1024);
+      }
       return canvas.toDataURL("image/jpeg", 0.92);
     }
 
@@ -696,8 +771,7 @@
       await nextPaint();
 
       try {
-        const croppedImageDataUrl = getCroppedImageDataUrl();
-        const sourceForProcessing = croppedImageDataUrl || await fileToDataUrl(fileInput.files[0]);
+        const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
         sourceImageDataUrl = sourceForProcessing;
         setLoading(true, LOADING_MESSAGE, null, 18);
 
@@ -1148,6 +1222,7 @@
       document.getElementById("above-text-input").value = "";
       document.getElementById("below-text-input").value = "";
       document.getElementById("file-input").value = "";
+      setSourceInputMode("whole");
       resetCropControls();
       syncCartProperties();
       // Scroll to top (upload step)
@@ -1609,6 +1684,7 @@
       processSourceImage,
       navigateToStep,
       updateCropPreview,
+      setSourceInputMode,
       setSize,
       updateSvgLayout,
       toggleRadiusControl,
