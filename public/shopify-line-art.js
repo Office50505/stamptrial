@@ -58,6 +58,33 @@
       return Array.from(document.querySelectorAll('form[action*="/cart/add"]'));
     }
 
+    function syncThemeSizeSelector(sizeKey) {
+      const sizeLabelMap = {
+        m: ["M - 4 Inch", "M - 4 in"],
+        l: ["L - 6 Inch", "L - 6 in"],
+        xl: ["XL - 8 Inch", "XL - 8 in"],
+        xxl: ["XXL - 10 Inch", "XXL - 10 in"]
+      };
+      const targetLabels = sizeLabelMap[sizeKey];
+      if (!targetLabels) return;
+
+      getShopifyProductForms().forEach((form) => {
+        const select = form.querySelector('select[name="id"]');
+        if (!select) return;
+
+        const matchingOption = Array.from(select.options).find((option) => {
+          const label = option.textContent.trim().toLowerCase();
+          return targetLabels.some((targetLabel) => label.startsWith(targetLabel.toLowerCase()));
+        });
+
+        if (!matchingOption || select.value === matchingOption.value) return;
+
+        select.value = matchingOption.value;
+        select.dispatchEvent(new Event("input", { bubbles: true }));
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    }
+
     function ensureCartPropertyInputs() {
       const fields = [
         "Design Preview",
@@ -238,6 +265,7 @@
       }
 
       updateSvgLayout();
+      syncThemeSizeSelector(key);
     }
 
     const DEFAULT_BACKGROUNDS = [
