@@ -163,7 +163,50 @@ PRESERVE
 - Visual balance.
 
 STRICT IDENTITY LOCK (NON-NEGOTIABLE)
-- The key features and core elements of the uploaded image must remain fully`;
+- The key features and core elements of the uploaded image must remain fully recognizable and unchanged in identity, count, position, and structure.
+- Do not alter, remove, merge, duplicate, reposition, or reinterpret any core subject element (e.g., facial features, object parts, distinguishing marks, accessories, or defining shapes present in the source).
+- Do not simplify away any feature to the point that the subject's specific identity or distinguishing characteristics are lost.
+- The line-art conversion must read as the same exact subject as the source image, not a generic or reimagined version of it.
+- If uncertain whether a detail counts as "core," default to preserving it rather than omitting it.
+
+SMALL MARK PRESERVATION (CRITICAL)
+- If the uploaded source contains any trademark (™), registered (®), copyright (©) symbol, monogram, small text, or tiny secondary mark, it MUST be reproduced in the output in the same position, scale, and style-consistent line form.
+- Do not drop, shrink into illegibility, or omit small marks/symbols just because they are tiny relative to the main subject.
+- Treat every small mark exactly like a core element — its absence is a failed conversion, not an acceptable simplification.
+- Before finalizing, scan the full source image edge-to-edge (including corners and periphery) for any symbol, initials, or mark, and confirm each one is present in the output.
+
+LINE QUALITY
+- Smooth Bezier-like curves.
+- Solid black strokes and fills only.
+- No gray.
+- No color.
+- No sketch effect.
+- No pencil texture.
+- No brush texture.
+- No watercolor.
+- No halftone.
+- No rough hand-drawn wobble.
+- No thin fragile lines.
+- No low-detail cartoon look.
+- No inverted look.
+- No mostly black badge.
+
+STRICT NEGATIVE CONSTRAINTS
+- Do not make a realistic portrait.
+- Do not output a shaded sketch.
+- Do not output a pencil drawing.
+- Do not output a generic clipart version.
+- Do not create a black filled disk or black filled square behind the subject.
+- Do not turn white negative spaces into black masses.
+- Do not invent unrelated ornaments.
+- Do not add text, letters, TM marks, logos, or watermarks unless they are clearly present in the uploaded image.
+- Do not omit any trademark, registered, copyright, or small secondary mark that is present in the uploaded source.
+- Do not copy any brand artwork unless the uploaded image itself is that artwork.
+- Do not add backgrounds, frames, or decorative scenery.
+- Do not change, remove, or reinterpret any key feature or core element of the original subject.
+
+TARGET RESULT
+The final image should look like the uploaded reference was converted into a bold black-and-white vector logo outline, with clean thick contours and selective solid black feature shapes on white, ready for printing or engraving — while preserving the exact identity, core elements, and any small marks (TM/®/©) of the original subject.`;
 
 app.post("/api/generate-line-art", async (req, res) => {
   try {
