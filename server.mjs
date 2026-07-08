@@ -183,7 +183,7 @@ app.post("/api/generate-line-art", async (req, res) => {
         prompt: LINE_ART_PROMPT,
         image_urls: [imageDataUrl],
         image_size: "auto",
-        quality: "high",
+        quality: "low",
         num_images: 4,
         output_format: "png",
         sync_mode: true
