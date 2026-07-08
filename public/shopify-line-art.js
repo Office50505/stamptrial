@@ -646,10 +646,10 @@
       if (!root) return;
 
       let start = null;
-      const ignored = "button,input,select,textarea,a,.crop-canvas,.variant-card,.mockup-card";
+      const ignored = "button,input,select,textarea,a,.crop-canvas,.variant-card,.mockup-card,.upload-zone";
 
       root.addEventListener("touchstart", (event) => {
-        if (window.innerWidth > 768 || currentStep <= 1 || event.touches.length !== 1 || event.target.closest(ignored)) {
+        if (window.innerWidth > 768 || currentStep <= 1 || event.touches.length !== 1 || !target || target.closest(ignored)) {
           start = null;
           return;
         }
