@@ -122,146 +122,69 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-const LINE_ART_PROMPT = `Convert the supplied reference image into clean black vector-style line art.
+const LINE_ART_PROMPT = `Convert the uploaded reference image into bold black vector-style logo line art on a pure white background.
 
-This is a technical vector conversion task, NOT an artistic illustration task.
+The target result should feel like a clean emblem/icon conversion: smooth thick black contours, crisp white negative space, and a polished manually traced vector look.
 
-The reference image is the absolute source of truth.
+Use the uploaded image as the source of truth for the subject, pose, silhouette, proportions, and layout.
 
-Preserve the original geometry exactly.
+STYLE TARGET
+- Bold black outline art.
+- Pure white background.
+- High-contrast black and white only.
+- Smooth continuous vector-quality strokes.
+- Thick confident contour lines similar to classic logo line art.
+- Rounded smooth curves where the source is curved.
+- Sharp clean corners where the source has corners.
+- Clean enclosed white negative spaces between black lines.
+- Simple, readable, premium emblem-style result.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ABSOLUTE PRESERVATION RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRANSFORMATION RULES
+- Convert visible subject edges, important internal edges, and major shadows into clean black vector paths.
+- Keep essential filled black areas when they make features readable, such as eyes, eyebrows, lips, deep shadows, or dark graphic details.
+- Remove photographic texture, gradients, skin tones, color, noise, soft lighting, and background clutter.
+- If the uploaded source already contains a graphic/logo, preserve its geometry closely.
+- If the uploaded source is a photo, simplify only enough to create a clean logo-style line-art version while keeping the likeness and main geometry.
 
-Do NOT redesign.
+PRESERVE
+- Overall composition.
+- Subject placement.
+- Main silhouette.
+- Proportions.
+- Symmetry/asymmetry from the source.
+- Important facial or product features.
+- Hair, clothing, object, or ornament flow when visible.
+- Spacing between major elements.
+- Internal negative space.
+- Line direction and curve rhythm.
+- Visual balance.
 
-Do NOT reinterpret.
-
-Do NOT recreate from memory.
-
-Do NOT simplify.
-
-Do NOT beautify.
-
-Do NOT modernize.
-
-Do NOT stylize.
-
-Do NOT "improve."
-
-Do NOT generate a similar logo.
-
-Do NOT invent any new curves.
-
-Do NOT change any proportions.
-
-Every contour must follow the original reference precisely.
-
-The output should look as if the original artwork was manually traced by an expert vector artist.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GEOMETRY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Preserve EXACTLY:
-
-• overall composition
-• circle shape
-• border thickness
-• facial proportions
-• facial symmetry
-• eye position
-• eye shape
-• eyelids
-• nose
-• lips
-• chin
-• crown geometry
-• star geometry
-• triangle beneath star
-• hair flow
-• every hair strand
-• spacing between hair strands
-• side ornaments
-• internal negative space
-• spacing between every element
-• line direction
-• curve radius
-• intersections
-• tangents
-• visual balance
-
-Every major contour in the output should align with the original artwork.
-
-If overlaid on top of the reference, the contours should coincide.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LINE QUALITY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Smooth Bezier-like curves.
+- Solid black strokes and fills only.
+- No gray.
+- No color.
+- No sketch effect.
+- No pencil texture.
+- No brush texture.
+- No watercolor.
+- No halftone.
+- No rough hand-drawn wobble.
+- No thin fragile lines.
+- No low-detail cartoon look.
 
-Create smooth continuous vector-quality strokes.
-
-Uniform stroke width.
-
-Sharp corners where appropriate.
-
-Perfectly smooth Bézier-style curves.
-
-No wobble.
-
-No sketch effect.
-
-No brush texture.
-
-No hand-drawn imperfections.
-
-No varying stroke weight.
-
-No artistic interpretation.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TRANSFORMATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The ONLY allowed transformation is:
-
-• remove solid fills
-• replace filled regions with clean black outlines
-
-Nothing else may change.
-
-Treat every filled edge in the reference as the exact outline path.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STRICT NEGATIVE CONSTRAINTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Do not make a realistic portrait.
+- Do not output a shaded sketch.
+- Do not output a pencil drawing.
+- Do not output a generic clipart version.
+- Do not invent unrelated ornaments.
+- Do not add text, letters, TM marks, logos, or watermarks unless they are clearly present in the uploaded image.
+- Do not copy any brand artwork unless the uploaded image itself is that artwork.
+- Do not add backgrounds, frames, or decorative scenery.
 
-Do NOT:
-
-• redraw the face
-• redraw the hair
-• redraw the crown
-• redraw the ornaments
-• alter spacing
-• alter symmetry
-• alter proportions
-• alter line flow
-• smooth away important features
-• add details
-• remove details
-• approximate geometry
-• infer missing information
-• replace with a generic version
-• recreate from memory
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TARGET RESULT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The final image should appear to be the original artwork converted directly into precise vector outlines, preserving every geometric relationship while only removing the fills.
-
-This is a precision tracing task rather than an illustration task.`;
+The final image should look like the uploaded reference was converted into a bold black-and-white vector logo outline, with clean thick contours and selective solid black feature shapes on white, ready for printing or engraving.`;
 
 app.post("/api/generate-line-art", async (req, res) => {
   try {
@@ -281,7 +204,7 @@ app.post("/api/generate-line-art", async (req, res) => {
         prompt: LINE_ART_PROMPT,
         image_urls: [imageDataUrl],
         image_size: "auto",
-        quality: "low",
+        quality: "high",
         num_images: 4,
         output_format: "png",
         sync_mode: true
