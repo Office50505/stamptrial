@@ -122,6 +122,147 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+const LINE_ART_PROMPT = `Convert the supplied reference image into clean black vector-style line art.
+
+This is a technical vector conversion task, NOT an artistic illustration task.
+
+The reference image is the absolute source of truth.
+
+Preserve the original geometry exactly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABSOLUTE PRESERVATION RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Do NOT redesign.
+
+Do NOT reinterpret.
+
+Do NOT recreate from memory.
+
+Do NOT simplify.
+
+Do NOT beautify.
+
+Do NOT modernize.
+
+Do NOT stylize.
+
+Do NOT "improve."
+
+Do NOT generate a similar logo.
+
+Do NOT invent any new curves.
+
+Do NOT change any proportions.
+
+Every contour must follow the original reference precisely.
+
+The output should look as if the original artwork was manually traced by an expert vector artist.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GEOMETRY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Preserve EXACTLY:
+
+• overall composition
+• circle shape
+• border thickness
+• facial proportions
+• facial symmetry
+• eye position
+• eye shape
+• eyelids
+• nose
+• lips
+• chin
+• crown geometry
+• star geometry
+• triangle beneath star
+• hair flow
+• every hair strand
+• spacing between hair strands
+• side ornaments
+• internal negative space
+• spacing between every element
+• line direction
+• curve radius
+• intersections
+• tangents
+• visual balance
+
+Every major contour in the output should align with the original artwork.
+
+If overlaid on top of the reference, the contours should coincide.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LINE QUALITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create smooth continuous vector-quality strokes.
+
+Uniform stroke width.
+
+Sharp corners where appropriate.
+
+Perfectly smooth Bézier-style curves.
+
+No wobble.
+
+No sketch effect.
+
+No brush texture.
+
+No hand-drawn imperfections.
+
+No varying stroke weight.
+
+No artistic interpretation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRANSFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The ONLY allowed transformation is:
+
+• remove solid fills
+• replace filled regions with clean black outlines
+
+Nothing else may change.
+
+Treat every filled edge in the reference as the exact outline path.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRICT NEGATIVE CONSTRAINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Do NOT:
+
+• redraw the face
+• redraw the hair
+• redraw the crown
+• redraw the ornaments
+• alter spacing
+• alter symmetry
+• alter proportions
+• alter line flow
+• smooth away important features
+• add details
+• remove details
+• approximate geometry
+• infer missing information
+• replace with a generic version
+• recreate from memory
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TARGET RESULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The final image should appear to be the original artwork converted directly into precise vector outlines, preserving every geometric relationship while only removing the fills.
+
+This is a precision tracing task rather than an illustration task.`;
+
 app.post("/api/generate-line-art", async (req, res) => {
   try {
     const { imageDataUrl } = req.body || {};
@@ -137,7 +278,7 @@ app.post("/api/generate-line-art", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        prompt: "generate a line art of the given image, black strokes on white background, clean minimalist lines, high detail, solid lines",
+        prompt: LINE_ART_PROMPT,
         image_urls: [imageDataUrl],
         image_size: "auto",
         quality: "low",
