@@ -162,36 +162,8 @@ PRESERVE
 - Line direction and curve rhythm.
 - Visual balance.
 
-LINE QUALITY
-- Smooth Bezier-like curves.
-- Solid black strokes and fills only.
-- No gray.
-- No color.
-- No sketch effect.
-- No pencil texture.
-- No brush texture.
-- No watercolor.
-- No halftone.
-- No rough hand-drawn wobble.
-- No thin fragile lines.
-- No low-detail cartoon look.
-- No inverted look.
-- No mostly black badge.
-
-STRICT NEGATIVE CONSTRAINTS
-- Do not make a realistic portrait.
-- Do not output a shaded sketch.
-- Do not output a pencil drawing.
-- Do not output a generic clipart version.
-- Do not create a black filled disk or black filled square behind the subject.
-- Do not turn white negative spaces into black masses.
-- Do not invent unrelated ornaments.
-- Do not add text, letters, TM marks, logos, or watermarks unless they are clearly present in the uploaded image.
-- Do not copy any brand artwork unless the uploaded image itself is that artwork.
-- Do not add backgrounds, frames, or decorative scenery.
-
-TARGET RESULT
-The final image should look like the uploaded reference was converted into a bold black-and-white vector logo outline, with clean thick contours and selective solid black feature shapes on white, ready for printing or engraving.`;
+STRICT IDENTITY LOCK (NON-NEGOTIABLE)
+- The key features and core elements of the uploaded image must remain fully`;
 
 app.post("/api/generate-line-art", async (req, res) => {
   try {
