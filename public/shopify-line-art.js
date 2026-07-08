@@ -59,27 +59,38 @@
     }
 
     function syncThemeSizeSelector(sizeKey) {
-      const sizeLabelMap = {
-        m: ["M - 4 Inch", "M - 4 in"],
-        l: ["L - 6 Inch", "L - 6 in"],
-        xl: ["XL - 8 Inch", "XL - 8 in"],
-        xxl: ["XXL - 10 Inch", "XXL - 10 in"]
+      const sizeMatchMap = {
+        m: { aliases: ["m"], inches: "4" },
+        l: { aliases: ["l"], inches: "6" },
+        xl: { aliases: ["xl"], inches: "8" },
+        xxl: { aliases: ["xxl", "2xl"], inches: "10" }
       };
-      const targetLabels = sizeLabelMap[sizeKey];
-      if (!targetLabels) return;
+      const target = sizeMatchMap[sizeKey];
+      if (!target) return;
 
-      getShopifyProductForms().forEach((form) => {
-        const select = form.querySelector('select[name="id"]');
+      const formSelects = getShopifyProductForms().flatMap((form) =>
+        Array.from(form.querySelectorAll('select[name="id"]'))
+      );
+      const allVariantSelects = Array.from(document.querySelectorAll('select[name="id"]'));
+      const selects = Array.from(new Set([...formSelects, ...allVariantSelects]));
+      const inchPattern = new RegExp(`(^|\\D)${target.inches}\\s*(inch|in|")\\b`, "i");
+
+      selects.forEach((select) => {
         if (!select) return;
 
         const matchingOption = Array.from(select.options).find((option) => {
-          const label = option.textContent.trim().toLowerCase();
-          return targetLabels.some((targetLabel) => label.startsWith(targetLabel.toLowerCase()));
+          const label = option.textContent.replace(/\s+/g, " ").trim().toLowerCase();
+          const startsWithSize = target.aliases.some((alias) =>
+            label.startsWith(`${alias} -`) || label.startsWith(`${alias}-`) || label.startsWith(`${alias} `)
+          );
+          return startsWithSize && inchPattern.test(label);
         });
 
         if (!matchingOption || select.value === matchingOption.value) return;
 
+        matchingOption.selected = true;
         select.value = matchingOption.value;
+        select.dispatchEvent(new Event("variant:change", { bubbles: true }));
         select.dispatchEvent(new Event("input", { bubbles: true }));
         select.dispatchEvent(new Event("change", { bubbles: true }));
       });
@@ -264,8 +275,8 @@
         if (display) display.textContent = `${rv * 2}px`;
       }
 
-      updateSvgLayout();
       syncThemeSizeSelector(key);
+      updateSvgLayout();
     }
 
     const DEFAULT_BACKGROUNDS = [
