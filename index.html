@@ -1447,13 +1447,25 @@
       setLoading(true, "Analyzing image & generating line arts...", "#step-pane-1 .glass-panel");
 
       try {
+        const sourceForProcessing = sourceImageDataUrl || await fileToDataUrl(fileInput.files[0]);
+        sourceImageDataUrl = sourceForProcessing;
+        const inputImage = await loadImageUrl(sourceForProcessing);
+        if (isMonochromeLogoInput(inputImage)) {
+          await renderGeneratedVariants(
+            [sourceForProcessing, sourceForProcessing, sourceForProcessing, sourceForProcessing],
+            CONTROLLED_LOGO_VARIANT_NAMES,
+            CONTROLLED_LOGO_VARIANT_PROFILES
+          );
+          return;
+        }
+
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            imageDataUrl: sourceImageDataUrl || await fileToDataUrl(fileInput.files[0])
+            imageDataUrl: sourceForProcessing
           })
         });
 
@@ -1506,15 +1518,23 @@
         .slice(0, 4);
     }
 
-    async function renderGeneratedVariants(urls) {
+    const CONTROLLED_LOGO_VARIANT_NAMES = ["Exact Logo Trace", "Clean Logo Trace", "Bold Logo Trace", "Heavy Logo Trace"];
+    const CONTROLLED_LOGO_VARIANT_PROFILES = [
+      { darkMax: 110, lightMin: 155, expandIterations: 0 },
+      { darkMax: 96, lightMin: 178, expandIterations: 0 },
+      { darkMax: 125, lightMin: 148, expandIterations: 1 },
+      { darkMax: 140, lightMin: 138, expandIterations: 2 }
+    ];
+
+    async function renderGeneratedVariants(urls, variantNameOverrides, processingProfiles) {
       const container = document.getElementById("variants-container");
       container.innerHTML = "";
 
-      const variantNames = ["Minimalist Outline", "Stylized Contour", "Ink Detail Sketch", "Contrast Silhouette"];
+      const variantNames = variantNameOverrides || ["Bold Logo Trace", "Clean Emblem Trace", "High Contrast Trace", "Solid Ink Trace"];
 
       for (let index = 0; index < urls.length; index++) {
         const img = await loadImageUrl(urls[index]);
-        const lineArt = cleanLineArt(img);
+        const lineArt = cleanLineArt(img, processingProfiles && processingProfiles[index]);
         generatedLineArtVariants[index] = lineArt;
 
         const displayCanvas = makeTransparentLineCanvas(lineArt, "black");
@@ -2047,7 +2067,7 @@
     }
 
     // Cleans generated line art into a transparent, recolorable form.
-    function cleanLineArt(image) {
+    function cleanLineArt(image, profile = {}) {
       const { width, height, imageData } = prepareImage(image);
       const canvas = document.getElementById("hidden-canvas");
       const ctx = canvas.getContext("2d");
@@ -2057,15 +2077,36 @@
       const gray = new Float32Array(width * height);
       const ink = new Uint8Array(width * height);
       const cleaned = new Uint8Array(width * height);
+      const useInvertedLogoExtraction = shouldUseInvertedLogoExtraction(src);
       const useLogoExtraction = shouldUseLogoExtraction(src);
 
       for (let i = 0, p = 0; i < src.length; i += 4, p++) {
         gray[p] = grayAt(src, i);
       }
 
-      if (useLogoExtraction) {
+      if (useInvertedLogoExtraction) {
+        const borderLight = getBorderConnectedLightPixels(src, width, height, profile);
+        const boundaryRadius = Math.max(2, Math.round(Math.min(width, height) / 180));
+
         for (let i = 0, p = 0; i < src.length; i += 4, p++) {
-          if (isDarkLogoInk(src, i)) {
+          if (!borderLight[p] && isLightLogoInk(src, i, profile)) {
+            ink[p] = 1;
+          }
+        }
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const p = y * width + x;
+            if (ink[p]) continue;
+
+            if (isDarkLogoInk(src, p * 4, profile) && hasMappedNeighbor(borderLight, width, height, x, y, boundaryRadius)) {
+              ink[p] = 1;
+            }
+          }
+        }
+      } else if (useLogoExtraction) {
+        for (let i = 0, p = 0; i < src.length; i += 4, p++) {
+          if (isDarkLogoInk(src, i, profile)) {
             ink[p] = 1;
           }
         }
@@ -2109,8 +2150,10 @@
         }
       }
 
+      const finalInk = applyLineWeight(cleaned, width, height, profile.expandIterations || 0);
+
       for (let i = 0, p = 0; i < dst.length; i += 4, p++) {
-        const color = cleaned[p] ? 0 : 255;
+        const color = finalInk[p] ? 0 : 255;
         dst[i] = color;
         dst[i + 1] = color;
         dst[i + 2] = color;
@@ -2187,7 +2230,7 @@
             dst[dstI] = color[0];
             dst[dstI + 1] = color[1];
             dst[dstI + 2] = color[2];
-            dst[dstI + 3] = 235; // slightly transparent lines for realistic texture look
+            dst[dstI + 3] = 255;
           } else {
             dst[dstI + 3] = 0;
           }
@@ -2198,8 +2241,12 @@
       return crop;
     }
 
-    function shouldUseLogoExtraction(data) {
+    function getLogoRasterStats(data) {
       let saturatedPixels = 0;
+      let lowChromaPixels = 0;
+      let darkPixels = 0;
+      let lightPixels = 0;
+      let midPixels = 0;
       let visiblePixels = 0;
 
       for (let i = 0; i < data.length; i += 4) {
@@ -2211,17 +2258,71 @@
         const b = data[i + 2];
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
+        const luma = grayAt(data, i);
+        const chroma = max - min;
 
         visiblePixels++;
-        if (max - min > 70 && max > 120) {
+        if (chroma <= 45) lowChromaPixels++;
+        if (luma < 130 && chroma <= 70) darkPixels++;
+        if (luma > 205 && chroma <= 45) lightPixels++;
+        if (luma >= 130 && luma <= 205 && chroma <= 70) midPixels++;
+        if (chroma > 70 && max > 120) {
           saturatedPixels++;
         }
       }
 
-      return visiblePixels > 0 && saturatedPixels / visiblePixels > 0.08;
+      if (!visiblePixels) {
+        return {
+          saturatedRatio: 0,
+          lowChromaRatio: 0,
+          darkRatio: 0,
+          lightRatio: 0,
+          midRatio: 0
+        };
+      }
+
+      return {
+        saturatedRatio: saturatedPixels / visiblePixels,
+        lowChromaRatio: lowChromaPixels / visiblePixels,
+        darkRatio: darkPixels / visiblePixels,
+        lightRatio: lightPixels / visiblePixels,
+        midRatio: midPixels / visiblePixels
+      };
     }
 
-    function isDarkLogoInk(data, index) {
+    function isMonochromeLogoInput(image) {
+      const { imageData } = prepareImage(image);
+      const stats = getLogoRasterStats(imageData.data);
+
+      return stats.lowChromaRatio > 0.88 &&
+        stats.lightRatio > 0.28 &&
+        stats.darkRatio > 0.015 &&
+        stats.darkRatio < 0.62 &&
+        stats.midRatio < 0.38;
+    }
+
+    function shouldUseInvertedLogoExtraction(data) {
+      const stats = getLogoRasterStats(data);
+
+      return stats.lowChromaRatio > 0.86 &&
+        stats.darkRatio > 0.36 &&
+        stats.lightRatio > 0.18 &&
+        stats.midRatio < 0.32;
+    }
+
+    function shouldUseLogoExtraction(data) {
+      const stats = getLogoRasterStats(data);
+      const isColorLogo = stats.saturatedRatio > 0.08;
+      const isMonochromeLogo = stats.lowChromaRatio > 0.88 &&
+        stats.lightRatio > 0.28 &&
+        stats.darkRatio > 0.015 &&
+        stats.darkRatio < 0.62 &&
+        stats.midRatio < 0.42;
+
+      return isColorLogo || isMonochromeLogo;
+    }
+
+    function isLightLogoInk(data, index, profile = {}) {
       const alpha = data[index + 3];
       if (alpha < 35) return false;
 
@@ -2232,7 +2333,98 @@
       const min = Math.min(r, g, b);
       const luma = grayAt(data, index);
 
-      return max < 95 || (luma < 120 && max - min < 55);
+      return luma > (profile.lightMin || 155) && max - min < 70;
+    }
+
+    function getBorderConnectedLightPixels(data, width, height, profile = {}) {
+      const total = width * height;
+      const visited = new Uint8Array(total);
+      const queue = new Int32Array(total);
+      let head = 0;
+      let tail = 0;
+
+      function enqueue(x, y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        const p = y * width + x;
+        if (visited[p]) return;
+        if (!isLightLogoInk(data, p * 4, profile)) return;
+        visited[p] = 1;
+        queue[tail++] = p;
+      }
+
+      for (let x = 0; x < width; x++) {
+        enqueue(x, 0);
+        enqueue(x, height - 1);
+      }
+
+      for (let y = 1; y < height - 1; y++) {
+        enqueue(0, y);
+        enqueue(width - 1, y);
+      }
+
+      while (head < tail) {
+        const p = queue[head++];
+        const x = p % width;
+        const y = Math.floor(p / width);
+
+        enqueue(x + 1, y);
+        enqueue(x - 1, y);
+        enqueue(x, y + 1);
+        enqueue(x, y - 1);
+      }
+
+      return visited;
+    }
+
+    function hasMappedNeighbor(map, width, height, x, y, radius) {
+      const x1 = Math.max(0, x - radius);
+      const y1 = Math.max(0, y - radius);
+      const x2 = Math.min(width - 1, x + radius);
+      const y2 = Math.min(height - 1, y + radius);
+
+      for (let yy = y1; yy <= y2; yy++) {
+        for (let xx = x1; xx <= x2; xx++) {
+          if (map[yy * width + xx]) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function applyLineWeight(source, width, height, expandIterations) {
+      let current = source;
+      const iterations = Math.max(0, Math.min(3, Number(expandIterations) || 0));
+
+      for (let iteration = 0; iteration < iterations; iteration++) {
+        const next = new Uint8Array(width * height);
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const p = y * width + x;
+            if (current[p] || hasMappedNeighbor(current, width, height, x, y, 1)) {
+              next[p] = 1;
+            }
+          }
+        }
+
+        current = next;
+      }
+
+      return current;
+    }
+
+    function isDarkLogoInk(data, index, profile = {}) {
+      const alpha = data[index + 3];
+      if (alpha < 35) return false;
+
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const luma = grayAt(data, index);
+
+      return max < (profile.darkMax || 110) || (luma < 180 && max - min < 60);
     }
 
     // Initialize UI state

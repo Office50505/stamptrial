@@ -134,6 +134,7 @@ STYLE TARGET
 - High-contrast black and white only.
 - Smooth continuous vector-quality strokes.
 - Thick confident contour lines similar to classic logo line art.
+- White-dominant result: black should appear as strokes/details, not as a filled black background.
 - Rounded smooth curves where the source is curved.
 - Sharp clean corners where the source has corners.
 - Clean enclosed white negative spaces between black lines.
@@ -142,6 +143,8 @@ STYLE TARGET
 TRANSFORMATION RULES
 - Convert visible subject edges, important internal edges, and major shadows into clean black vector paths.
 - Keep essential filled black areas when they make features readable, such as eyes, eyebrows, lips, deep shadows, or dark graphic details.
+- Keep the interior mostly white wherever the source has open or light areas.
+- Use thick black strokes for borders and contours instead of filling large regions solid black.
 - Remove photographic texture, gradients, skin tones, color, noise, soft lighting, and background clutter.
 - If the uploaded source already contains a graphic/logo, preserve its geometry closely.
 - If the uploaded source is a photo, simplify only enough to create a clean logo-style line-art version while keeping the likeness and main geometry.
@@ -172,12 +175,16 @@ LINE QUALITY
 - No rough hand-drawn wobble.
 - No thin fragile lines.
 - No low-detail cartoon look.
+- No inverted look.
+- No mostly black badge.
 
 STRICT NEGATIVE CONSTRAINTS
 - Do not make a realistic portrait.
 - Do not output a shaded sketch.
 - Do not output a pencil drawing.
 - Do not output a generic clipart version.
+- Do not create a black filled disk or black filled square behind the subject.
+- Do not turn white negative spaces into black masses.
 - Do not invent unrelated ornaments.
 - Do not add text, letters, TM marks, logos, or watermarks unless they are clearly present in the uploaded image.
 - Do not copy any brand artwork unless the uploaded image itself is that artwork.
