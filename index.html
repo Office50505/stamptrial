@@ -1331,20 +1331,42 @@
         if (!select) return;
 
         const matchingOption = Array.from(select.options).find((option) => {
-          const label = option.textContent.replace(/\s+/g, " ").trim().toLowerCase();
-          const startsWithSize = target.aliases.some((alias) =>
-            label.startsWith(`${alias} -`) || label.startsWith(`${alias}-`) || label.startsWith(`${alias} `)
+          const label = option.textContent
+            .replace(/[–—]/g, "-")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+          const hasSizeAlias = target.aliases.some((alias) =>
+            new RegExp(`(^|\\s)${alias}\\s*(-|\\s)`, "i").test(label)
           );
-          return startsWithSize && inchPattern.test(label);
+          return hasSizeAlias && inchPattern.test(label);
         });
 
         if (!matchingOption || select.value === matchingOption.value) return;
 
-        matchingOption.selected = true;
+        Array.from(select.options).forEach((option) => {
+          option.selected = option === matchingOption;
+          if (option === matchingOption) {
+            option.setAttribute("selected", "selected");
+          } else {
+            option.removeAttribute("selected");
+          }
+        });
+        select.selectedIndex = Array.from(select.options).indexOf(matchingOption);
         select.value = matchingOption.value;
-        select.dispatchEvent(new Event("variant:change", { bubbles: true }));
         select.dispatchEvent(new Event("input", { bubbles: true }));
         select.dispatchEvent(new Event("change", { bubbles: true }));
+        select.dispatchEvent(new CustomEvent("variant:change", {
+          bubbles: true,
+          detail: { variantId: matchingOption.value }
+        }));
+      });
+    }
+
+    function scheduleThemeSizeSelectorSync(sizeKey) {
+      syncThemeSizeSelector(sizeKey);
+      [50, 250, 750].forEach((delay) => {
+        setTimeout(() => syncThemeSizeSelector(sizeKey), delay);
       });
     }
 
@@ -1371,7 +1393,7 @@
         if (display) display.textContent = `${rv * 2}px`;
       }
 
-      syncThemeSizeSelector(key);
+      scheduleThemeSizeSelectorSync(key);
       updateSvgLayout();
     }
 
