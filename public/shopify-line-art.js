@@ -779,6 +779,9 @@
     }
 
     function setLoading(isLoading, text = "Loading...", targetSelector, progress = 0) {
+      if (window.innerWidth < 768) {
+        return;
+      }
       const globalOverlay = getLoadingOverlay();
       const globalText = document.getElementById("loading-text");
 
