@@ -1270,7 +1270,6 @@
 
       try {
         const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
-        sourceImageDataUrl = sourceForProcessing;
         setGenerationLoading(true, 18);
 
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
