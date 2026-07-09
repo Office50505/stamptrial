@@ -27,6 +27,7 @@
     let cartDesignSavePromise = null;
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
+    let lastSwipeNavigationAt = 0;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
@@ -527,6 +528,7 @@
         const topActions = document.createElement("div");
         topActions.className = "customizer-top-actions";
         backButton.textContent = "Back to Styles";
+        backButton.classList.add("customizer-back-btn");
         topActions.appendChild(backButton);
         customizePanel.insertBefore(topActions, customizeLayout);
       }
@@ -534,6 +536,37 @@
       if (bottomRow && !bottomRow.children.length) {
         bottomRow.remove();
       }
+
+      initCustomizerPreviewFullscreen();
+    }
+
+    function initCustomizerPreviewFullscreen() {
+      const preview = document.getElementById("svg-container");
+      if (!preview || preview.dataset.fullscreenReady === "true") return;
+
+      preview.dataset.fullscreenReady = "true";
+      preview.setAttribute("role", "button");
+      preview.setAttribute("tabindex", "0");
+      preview.setAttribute("aria-label", "Open preview fullscreen");
+
+      const openPreview = async () => {
+        if (Date.now() - lastSwipeNavigationAt < 600) return;
+        if (!selectedVariant) return;
+        try {
+          const previewUrl = await renderFinalDesignDataUrl();
+          openFullscreenImage(previewUrl, "Stamp preview");
+        } catch (error) {
+          console.warn("Could not open preview fullscreen:", error);
+        }
+      };
+
+      preview.addEventListener("click", openPreview);
+      preview.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openPreview();
+        }
+      });
     }
 
     function initUploadPictureButton() {
@@ -645,6 +678,7 @@
     }
 
     function openFullscreenImage(src, caption = "Preview") {
+      if (Date.now() - lastSwipeNavigationAt < 600) return;
       if (!src) return;
       const viewer = ensureFullscreenViewer();
       const image = viewer.querySelector(".fullscreen-image");
@@ -890,14 +924,15 @@
 
     function initMobileStepSwipe() {
       const root = document.querySelector(".app-container");
-      if (!root) return;
+      if (!root || root.dataset.swipeBackReady === "true") return;
+      root.dataset.swipeBackReady = "true";
 
       let start = null;
-      const ignored = "button,input,select,textarea,a,.crop-canvas,.variant-card,.mockup-card,.upload-zone";
+      const ignored = "button,input,select,textarea,a,.crop-canvas,.upload-zone,.line-art-fullscreen-viewer";
 
       root.addEventListener("touchstart", (event) => {
         const target = event.target;
-        if (window.innerWidth > 768 || currentStep <= 1 || event.touches.length !== 1 || !target || target.closest(ignored)) {
+        if (document.body.classList.contains("line-art-fullscreen-open") || currentStep <= 1 || event.touches.length !== 1 || !target || target.closest(ignored)) {
           start = null;
           return;
         }
@@ -913,10 +948,12 @@
         const elapsed = Date.now() - start.t;
         start = null;
 
-        if (dx > 80 && Math.abs(dy) < 45 && elapsed < 900) {
+        if (dx > 80 && Math.abs(dy) < 70 && dx > Math.abs(dy) * 1.35 && elapsed < 900) {
+          event.preventDefault();
+          lastSwipeNavigationAt = Date.now();
           navigateToStep(currentStep - 1);
         }
-      }, { passive: true });
+      }, { passive: false });
 
       root.addEventListener("touchcancel", () => {
         start = null;

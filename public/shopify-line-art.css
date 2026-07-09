@@ -349,10 +349,20 @@
       min-height: 36px;
       padding: 0 12px;
     }
+.line-art-customizer-root .customizer-top-actions .customizer-back-btn {
+      background: #1592e6;
+      border: 1px solid #1592e6;
+      color: #ffffff;
+    }
+.line-art-customizer-root .customizer-top-actions .customizer-back-btn:hover {
+      background: #0f83d1;
+      border-color: #0f83d1;
+      color: #ffffff;
+    }
     .customize-layout {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 32px;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 24px;
       align-items: start;
     }
 @media (max-width: 900px) {
@@ -369,9 +379,9 @@
     }
 .line-art-customizer-root .svg-artwork-container {
       width: 100%;
-      max-width: 720px; /* larger preview */
+      max-width: 860px;
       aspect-ratio: 1;
-      min-height: 420px;
+      min-height: 520px;
       background: #ffffff;
       border-radius: var(--radius-lg);
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -381,12 +391,17 @@
       align-items: center;
       justify-content: center;
       position: relative;
+      cursor: zoom-in;
+    }
+.line-art-customizer-root .svg-artwork-container:focus-visible {
+      outline: 3px solid rgba(17, 24, 39, 0.22);
+      outline-offset: 2px;
     }
 .line-art-customizer-root /* Size-specific preview widths */
-    .svg-artwork-container.size-m { max-width: 380px; }
-.line-art-customizer-root .svg-artwork-container.size-l { max-width: 520px; }
-.line-art-customizer-root .svg-artwork-container.size-xl { max-width: 800px; }
-.line-art-customizer-root .svg-artwork-container.size-xxl { max-width: 1000px; }
+    .svg-artwork-container.size-m { max-width: 520px; }
+.line-art-customizer-root .svg-artwork-container.size-l { max-width: 680px; }
+.line-art-customizer-root .svg-artwork-container.size-xl { max-width: 900px; }
+.line-art-customizer-root .svg-artwork-container.size-xxl { max-width: 1040px; }
 .line-art-customizer-root /* Subtle grid backdrop for transparent preview */
     .checkerboard-bg {
       background-image:
