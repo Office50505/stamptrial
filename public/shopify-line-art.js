@@ -23,6 +23,7 @@
     let savedDesignId = "";
     let finalDesignImageUrl = "";
     let isSavingCartDesign = false;
+    let isPreparingMockups = false;
     let cartDesignSavePromise = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
@@ -544,6 +545,22 @@
         globalOverlay.style.display = "none";
       }
       stopGlobalProgress();
+    }
+
+    function getApplyMockupsButton() {
+      return document.querySelector("#step-pane-3 .button-row .btn-primary");
+    }
+
+    function setMockupsButtonLoading(isLoading) {
+      const button = getApplyMockupsButton();
+      if (!button) return;
+
+      button.classList.toggle("is-loading", isLoading);
+      button.disabled = isLoading;
+      button.setAttribute("aria-busy", isLoading ? "true" : "false");
+      button.innerHTML = isLoading
+        ? '<span class="button-spinner" aria-hidden="true"></span><span>Preparing mockups...</span>'
+        : 'Apply to Mockups<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>';
     }
 
     function hideAdvancedTextControls() {
@@ -1329,6 +1346,11 @@
 
     // Step 4: Composing on backgrounds
     async function proceedToMockups() {
+      if (isPreparingMockups) return;
+      isPreparingMockups = true;
+      setMockupsButtonLoading(true);
+      await nextPaint();
+
       const container = document.getElementById("mockups-container");
       container.innerHTML = "";
 
@@ -1376,6 +1398,9 @@
         revealStep(4);
       } catch (err) {
         alert("Mockup composite failed: " + err.message);
+      } finally {
+        isPreparingMockups = false;
+        setMockupsButtonLoading(false);
       }
     }
 

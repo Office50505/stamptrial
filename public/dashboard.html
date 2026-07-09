@@ -17,6 +17,12 @@
       --muted-light: #9ca3af;
       --accent: #111827;
       --accent-hover: #1f2937;
+      --success-bg: #ecfdf3;
+      --success-text: #166534;
+      --success-border: #bbf7d0;
+      --warning-bg: #fffbeb;
+      --warning-text: #92400e;
+      --warning-border: #fde68a;
       --radius: 8px;
     }
 
@@ -164,10 +170,77 @@
       color: var(--muted);
     }
 
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .metric-card {
+      min-width: 0;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+    }
+
+    .metric-label {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .metric-value {
+      color: var(--text);
+      font-size: 26px;
+      line-height: 1;
+      font-weight: 760;
+    }
+
+    .category-tabs {
+      margin-bottom: 14px;
+      padding: 4px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      overflow-x: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .category-tab {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .category-tab:hover {
+      background: var(--surface-muted);
+      border-color: transparent;
+    }
+
+    .category-tab.active {
+      background: var(--text);
+      color: #ffffff;
+      border-color: var(--text);
+    }
+
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-      gap: 14px;
+      grid-template-columns: 1fr;
+      gap: 12px;
     }
 
     .card {
@@ -176,15 +249,26 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(360px, 42%) minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
       box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .card:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 4px 14px rgba(17, 24, 39, 0.07);
     }
 
     .card-head {
       padding: 14px;
       display: grid;
-      gap: 8px;
+      gap: 10px;
       border-bottom: 1px solid var(--border);
-      background: var(--surface-muted);
+      background: var(--surface);
+      grid-column: 2;
+      grid-row: 1;
     }
 
     .title-row {
@@ -194,10 +278,22 @@
       justify-content: space-between;
     }
 
+    .order-heading {
+      min-width: 0;
+    }
+
     .design-id {
-      font-size: 13px;
+      color: var(--muted);
+      font-size: 12px;
       font-weight: 750;
       overflow-wrap: anywhere;
+    }
+
+    .order-title {
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 760;
     }
 
     .badge {
@@ -211,6 +307,18 @@
       font-weight: 750;
     }
 
+    .badge.success {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+
+    .badge.warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-border);
+      color: var(--warning-text);
+    }
+
     .meta {
       display: flex;
       gap: 8px;
@@ -219,11 +327,28 @@
       font-size: 12px;
     }
 
+    .meta-pill {
+      min-height: 24px;
+      padding: 4px 8px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-muted);
+      color: var(--muted);
+      font-weight: 650;
+    }
+
     .images {
+      padding: 14px;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0;
-      background: #ffffff;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      background: var(--surface-muted);
+      border-right: 1px solid var(--border);
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      align-content: start;
     }
 
     .image-cell {
@@ -231,11 +356,9 @@
       background: #ffffff;
       display: flex;
       flex-direction: column;
-      border-right: 1px solid var(--border);
-    }
-
-    .image-cell:last-child {
-      border-right: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
     }
 
     .image-label {
@@ -244,6 +367,7 @@
       font-weight: 750;
       color: var(--text);
       border-bottom: 1px solid var(--border);
+      background: var(--surface-muted);
     }
 
     .image-wrap {
@@ -254,6 +378,12 @@
       background: #ffffff;
       overflow: hidden;
       border-bottom: 1px solid var(--border);
+    }
+
+    .image-cell.primary .image-wrap,
+    .image-cell.compact .image-wrap {
+      aspect-ratio: 1.08;
+      background: #f9fafb;
     }
 
     .image-wrap img {
@@ -298,11 +428,13 @@
     }
 
     .settings {
-      padding: 12px 14px;
+      padding: 14px;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
-      border-top: 1px solid var(--border);
+      grid-column: 2;
+      grid-row: 2;
+      align-content: start;
     }
 
     .setting {
@@ -314,6 +446,10 @@
       font-size: 12px;
       line-height: 1.35;
       overflow-wrap: anywhere;
+    }
+
+    .setting.wide {
+      grid-column: 1 / -1;
     }
 
     .setting strong {
@@ -335,12 +471,11 @@
     }
 
     @media (max-width: 760px) {
+      .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .card-head, .images, .settings { grid-column: 1; grid-row: auto; }
+      .images { border-right: 0; border-bottom: 1px solid var(--border); }
       .images { grid-template-columns: 1fr; }
-      .image-cell {
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
-      }
-      .image-cell:last-child { border-bottom: 0; }
       .settings { grid-template-columns: 1fr; }
       input { width: 100%; }
       .toolbar { width: 100%; }
@@ -350,12 +485,9 @@
     }
 
     @media (min-width: 761px) and (max-width: 1180px) {
+      .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { grid-template-columns: minmax(300px, 44%) minmax(0, 1fr); }
       .images { grid-template-columns: 1fr; }
-      .image-cell {
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
-      }
-      .image-cell:last-child { border-bottom: 0; }
       .settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
@@ -380,6 +512,8 @@
   </header>
 
   <main>
+    <div class="metrics-grid" id="metrics"></div>
+    <div class="category-tabs" id="category-tabs" aria-label="Design categories"></div>
     <div class="summary" id="summary">Loading designs...</div>
     <div id="content" class="status">Loading...</div>
   </main>
@@ -393,6 +527,7 @@
     };
 
     let designs = [];
+    let activeCategory = "ordered";
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -414,6 +549,75 @@
       return sizeLabels[key] || String(size || "Not saved").toUpperCase();
     }
 
+    function hasOrder(design) {
+      return Boolean(design.orderName || design.orderNumber || design.orderId);
+    }
+
+    function hasFinalDesign(design) {
+      return Boolean(design.finalDesignUrl);
+    }
+
+    function getMetrics() {
+      return {
+        total: designs.length,
+        ordered: designs.filter(hasOrder).length,
+        awaiting: designs.filter((design) => !hasOrder(design)).length,
+        finalReady: designs.filter(hasFinalDesign).length
+      };
+    }
+
+    function categoryMatches(design) {
+      if (activeCategory === "ordered") return hasOrder(design);
+      if (activeCategory === "awaiting") return !hasOrder(design);
+      if (activeCategory === "final") return hasFinalDesign(design);
+      return true;
+    }
+
+    function sortDesignsForDashboard(a, b) {
+      const orderDelta = Number(hasOrder(b)) - Number(hasOrder(a));
+      if (orderDelta) return orderDelta;
+
+      const aTime = new Date(a.createdAt || 0).getTime() || 0;
+      const bTime = new Date(b.createdAt || 0).getTime() || 0;
+      return bTime - aTime;
+    }
+
+    function renderMetrics(metrics) {
+      document.getElementById("metrics").innerHTML = `
+        <div class="metric-card">
+          <div class="metric-label">Ordered</div>
+          <div class="metric-value">${metrics.ordered}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Awaiting order</div>
+          <div class="metric-value">${metrics.awaiting}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Final ready</div>
+          <div class="metric-value">${metrics.finalReady}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total saved</div>
+          <div class="metric-value">${metrics.total}</div>
+        </div>
+      `;
+    }
+
+    function renderCategoryTabs(metrics) {
+      const tabs = [
+        ["ordered", `Ordered (${metrics.ordered})`],
+        ["awaiting", `Awaiting order (${metrics.awaiting})`],
+        ["final", `Final ready (${metrics.finalReady})`],
+        ["all", `All (${metrics.total})`]
+      ];
+
+      document.getElementById("category-tabs").innerHTML = tabs.map(([key, label]) => `
+        <button class="category-tab${activeCategory === key ? " active" : ""}" type="button" data-category="${key}">
+          ${escapeHtml(label)}
+        </button>
+      `).join("");
+    }
+
     function filenameFrom(label, designId) {
       const safeId = String(designId || "line-art-design")
         .toLowerCase()
@@ -426,10 +630,11 @@
       return `${safeId}-${safeLabel}.png`;
     }
 
-    function imageCell(label, url, designId) {
+    function imageCell(label, url, designId, modifier = "") {
+      const cellClass = `image-cell${modifier ? ` ${modifier}` : ""}`;
       if (!url) {
         return `
-          <div class="image-cell">
+          <div class="${cellClass}">
             <div class="image-label">${label}</div>
             <div class="image-wrap"><div class="image-empty">Not saved</div></div>
             <div class="image-meta">-</div>
@@ -443,7 +648,7 @@
       const safeUrl = escapeHtml(url);
       const fileName = escapeHtml(filenameFrom(label, designId));
       return `
-        <div class="image-cell">
+        <div class="${cellClass}">
           <div class="image-label">${label}</div>
           <a class="image-wrap" href="${safeUrl}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(label)}">
             <img src="${safeUrl}" alt="${escapeHtml(label)}" loading="lazy" crossorigin="anonymous">
@@ -472,18 +677,26 @@
         normalizeSize(settings.selectedSize),
         settings.inkColor,
         settings.aboveText,
-        settings.belowText
+        settings.belowText,
+        settings.notesForDesigner
       ].join(" ").toLowerCase();
       return haystack.includes(query);
     }
 
     function render() {
       const query = document.getElementById("search").value.trim().toLowerCase();
-      const filtered = designs.filter((design) => designMatches(design, query));
+      const metrics = getMetrics();
+      renderMetrics(metrics);
+      renderCategoryTabs(metrics);
+
+      const filtered = designs
+        .filter(categoryMatches)
+        .filter((design) => designMatches(design, query))
+        .sort(sortDesignsForDashboard);
       const content = document.getElementById("content");
       document.getElementById("summary").innerHTML = `
         <span><strong>${filtered.length}</strong> shown of <strong>${designs.length}</strong> saved design${designs.length === 1 ? "" : "s"}</span>
-        <span class="summary-note">Use the PNG buttons for artwork downloads.</span>
+        <span class="summary-note">Ordered designs appear first. Use PNG buttons for production downloads.</span>
       `;
 
       if (!filtered.length) {
@@ -497,33 +710,39 @@
         const settings = design.settings || {};
         const finalStatus = design.finalDesignUrl ? "Final saved" : "Variant only";
         const orderLabel = design.orderName || (design.orderNumber ? `#${design.orderNumber}` : "-");
-        const orderBadge = orderLabel === "-" ? "No order yet" : orderLabel;
+        const orderTitle = orderLabel === "-" ? "Awaiting Shopify order" : `Order ${orderLabel}`;
+        const orderBadge = orderLabel === "-" ? "No order yet" : "Ordered";
+        const badgeClass = orderLabel === "-" ? "warning" : "success";
+        const customerLabel = design.customerName || design.customerEmail || "-";
+        const orderCreatedLabel = design.orderCreatedAt ? formatDate(design.orderCreatedAt) : "-";
+        const notes = settings.notesForDesigner || "";
         return `
           <article class="card">
             <div class="card-head">
               <div class="title-row">
-                <div class="design-id">${escapeHtml(design.designId || "No design id")}</div>
-                <div class="badge">${escapeHtml(orderBadge)}</div>
+                <div class="order-heading">
+                  <div class="order-title">${escapeHtml(orderTitle)}</div>
+                  <div class="design-id">${escapeHtml(design.designId || "No design id")}</div>
+                </div>
+                <div class="badge ${badgeClass}">${escapeHtml(orderBadge)}</div>
               </div>
               <div class="meta">
-                <span>${escapeHtml(formatDate(design.createdAt))}</span>
-                <span>${escapeHtml(finalStatus)}</span>
-                <span>Order ${escapeHtml(orderLabel)}</span>
+                <span class="meta-pill">${escapeHtml(finalStatus)}</span>
+                <span class="meta-pill">Saved ${escapeHtml(formatDate(design.createdAt))}</span>
+                <span class="meta-pill">Customer ${escapeHtml(customerLabel)}</span>
               </div>
             </div>
             <div class="images">
-              ${imageCell("Original", design.originalImageUrl, design.designId)}
-              ${imageCell("Chosen line art", design.chosenVariantUrl, design.designId)}
-              ${imageCell("Final design", design.finalDesignUrl, design.designId)}
+              ${imageCell("Final production design", design.finalDesignUrl, design.designId, "primary")}
+              ${imageCell("Original upload", design.originalImageUrl, design.designId, "compact")}
             </div>
             <div class="settings">
               <div class="setting"><strong>Order</strong>${escapeHtml(orderLabel)}</div>
-              <div class="setting"><strong>File</strong>${escapeHtml(settings.sourceFileName || "-")}</div>
-              <div class="setting"><strong>Customer</strong>${escapeHtml(design.customerName || design.customerEmail || "-")}</div>
-              <div class="setting"><strong>Ink</strong>${escapeHtml(settings.inkColor || "-")}</div>
-              <div class="setting"><strong>Variant</strong>${escapeHtml(settings.selectedVariantIndex ?? "-")}</div>
+              <div class="setting"><strong>Order Date</strong>${escapeHtml(orderCreatedLabel)}</div>
+              <div class="setting"><strong>Customer</strong>${escapeHtml(customerLabel)}</div>
               <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>
               <div class="setting"><strong>Below Text</strong>${escapeHtml(settings.belowText || "-")}</div>
+              ${notes ? `<div class="setting wide"><strong>Designer Notes</strong>${escapeHtml(notes)}</div>` : ""}
             </div>
           </article>
         `;
@@ -644,6 +863,12 @@
     document.getElementById("refresh").addEventListener("click", loadDesigns);
     document.getElementById("limit").addEventListener("change", loadDesigns);
     document.getElementById("search").addEventListener("input", render);
+    document.getElementById("category-tabs").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-category]");
+      if (!button) return;
+      activeCategory = button.dataset.category || "ordered";
+      render();
+    });
     loadDesigns();
   </script>
 </body>

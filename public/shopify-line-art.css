@@ -127,7 +127,7 @@
 .line-art-customizer-root .upload-required-marker {
       display: none !important;
     }
-.line-art-customizer-root .upload-picture-btn {
+.line-art-customizer-root .btn-secondary.upload-picture-btn {
       width: 100%;
       min-height: 41px;
       border-radius: 3px;
@@ -140,7 +140,7 @@
       overflow: hidden;
       isolation: isolate;
     }
-.line-art-customizer-root .upload-picture-btn::before {
+.line-art-customizer-root .btn-secondary.upload-picture-btn::before {
       content: "";
       position: absolute;
       inset: 0 auto 0 0;
@@ -149,17 +149,19 @@
       z-index: 0;
       transition: width 0.25s ease;
     }
-.line-art-customizer-root .upload-picture-label {
+.line-art-customizer-root .btn-secondary.upload-picture-btn .upload-picture-label {
       position: relative;
       z-index: 1;
     }
-.line-art-customizer-root .upload-picture-btn:hover {
+.line-art-customizer-root .btn-secondary.upload-picture-btn:hover {
       background: #0f83d1;
       border-color: #0f83d1;
+      color: #ffffff;
     }
-.line-art-customizer-root .upload-picture-btn.is-loading {
+.line-art-customizer-root .btn-secondary.upload-picture-btn.is-loading {
       background: #0f83d1;
       border-color: #0f83d1;
+      color: #ffffff;
       cursor: wait;
     }
 .line-art-customizer-root .upload-step-layout .preview-card {
@@ -708,6 +710,18 @@
       color: var(--text-muted);
       cursor: not-allowed;
       border: 1px solid var(--border-color);
+    }
+.line-art-customizer-root .btn.is-loading {
+      cursor: wait;
+    }
+.line-art-customizer-root .button-spinner {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      display: inline-block;
+      animation: spin 0.75s linear infinite;
     }
 .line-art-customizer-root /* Loader components */
     .loading-overlay {

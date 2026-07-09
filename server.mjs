@@ -124,6 +124,11 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
     ));
 
     if (!designIds.length) {
+      console.warn("Shopify orders/create webhook received with no Design ID properties", {
+        orderName: order.name || order.order_number || "",
+        webhookId,
+        lineItemCount: lineItems.length
+      });
       res.status(200).send("No design IDs found");
       return;
     }
@@ -141,13 +146,21 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    await db.collection("designs").updateMany(
+    const updateResult = await db.collection("designs").updateMany(
       { designId: { $in: designIds } },
       {
         $set: orderPayload,
         ...(webhookId ? { $addToSet: { webhookIds: webhookId } } : {})
       }
     );
+
+    console.info("Shopify orders/create webhook processed", {
+      orderName: orderPayload.orderName,
+      designIds,
+      matchedCount: updateResult.matchedCount,
+      modifiedCount: updateResult.modifiedCount,
+      webhookId
+    });
 
     res.status(200).send("OK");
   } catch (error) {
