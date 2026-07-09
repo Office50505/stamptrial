@@ -26,6 +26,7 @@
     let cartDesignSavePromise = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
+    const GENERATION_LOADING_TARGET = "#step-pane-1";
 
     // Constants
     const INK_COLORS = {
@@ -528,17 +529,7 @@
 
       uploadButton.classList.toggle("is-loading", isLoading);
       uploadButton.disabled = isLoading;
-      if (isLoading && sourceImageDataUrl) {
-        uploadButton.textContent = "";
-        const thumb = document.createElement("span");
-        thumb.className = "upload-loading-thumb";
-        thumb.style.backgroundImage = `url("${sourceImageDataUrl}")`;
-        const label = document.createElement("span");
-        label.textContent = "Generating preview...";
-        uploadButton.append(thumb, label);
-      } else {
-        uploadButton.textContent = "Upload Picture";
-      }
+      uploadButton.textContent = isLoading ? "Generating preview..." : "Upload Picture";
     }
 
     function hideAdvancedTextControls() {
@@ -939,10 +930,32 @@
         if (!overlay) {
           overlay = document.createElement('div');
           overlay.className = 'section-loading-overlay';
-          overlay.innerHTML = `<div class="progress-shell"><div class="loading-text">${LOADING_MESSAGE}</div><div class="progress-track"><div class="progress-bar" style="width:0%"></div></div></div>`;
           target.appendChild(overlay);
         } else {
           overlay.style.display = 'flex';
+        }
+        if (sourceImageDataUrl) {
+          overlay.classList.add("section-loading-overlay-with-image");
+          overlay.innerHTML = "";
+          const shell = document.createElement("div");
+          shell.className = "preview-loader-shell";
+          const image = document.createElement("div");
+          image.className = "preview-loader-image";
+          image.style.backgroundImage = `url("${sourceImageDataUrl}")`;
+          const label = document.createElement("div");
+          label.className = "loading-text";
+          label.textContent = LOADING_MESSAGE;
+          const track = document.createElement("div");
+          track.className = "progress-track";
+          const bar = document.createElement("div");
+          bar.className = "progress-bar";
+          bar.style.width = "0%";
+          track.appendChild(bar);
+          shell.append(image, label, track);
+          overlay.appendChild(shell);
+        } else {
+          overlay.classList.remove("section-loading-overlay-with-image");
+          overlay.innerHTML = `<div class="progress-shell"><div class="loading-text">${LOADING_MESSAGE}</div><div class="progress-track"><div class="progress-bar" style="width:0%"></div></div></div>`;
         }
         updateProgressUI(overlay, progress, LOADING_MESSAGE);
       } else {
@@ -1001,11 +1014,13 @@
 
       const loadingStartedAt = Date.now();
       setUploadButtonLoading(true);
+      setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 8);
       await nextPaint();
 
       try {
         const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
         sourceImageDataUrl = sourceForProcessing;
+        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 18);
 
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
@@ -1017,6 +1032,7 @@
           })
         });
 
+        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 58);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(data.detail || data.error || data.message || "Generation failed.");
@@ -1027,7 +1043,9 @@
           throw new Error("No generated images were returned.");
         }
 
+        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 70);
         await renderGeneratedVariants(imageUrls);
+        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 100);
         await sleep(Math.max(250, 700 - (Date.now() - loadingStartedAt)));
       } catch (err) {
         console.warn(err);
@@ -1035,6 +1053,7 @@
       } finally {
         isGeneratingLineArt = false;
         setUploadButtonLoading(false);
+        setLoading(false, "", GENERATION_LOADING_TARGET);
       }
     }
 
@@ -1075,6 +1094,7 @@
       const variantNames = variantNameOverrides || ["Style 1", "Style 2", "Style 3", "Style 4"];
 
       for (let index = 0; index < urls.length; index++) {
+        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 70 + Math.round((index / urls.length) * 24));
         const img = await loadImageUrl(urls[index]);
         const lineArt = cleanLineArt(img, processingProfiles && processingProfiles[index]);
         generatedLineArtVariants[index] = lineArt;
