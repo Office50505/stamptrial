@@ -532,9 +532,17 @@
       uploadButton.textContent = isLoading ? "Generating preview..." : "Upload Picture";
     }
 
-    function setGenerationLoading(isLoading, progress = 0) {
-      if (!document.querySelector(GENERATION_LOADING_TARGET)) return;
-      setLoading(isLoading, LOADING_MESSAGE, GENERATION_LOADING_TARGET, progress);
+    function setGenerationLoading() {
+      document
+        .querySelectorAll(`${GENERATION_LOADING_TARGET} .section-loading-overlay`)
+        .forEach((overlay) => overlay.remove());
+
+      const globalOverlay = document.getElementById("loading-overlay");
+      if (globalOverlay) {
+        globalOverlay.classList.remove("active");
+        globalOverlay.style.display = "none";
+      }
+      stopGlobalProgress();
     }
 
     function hideAdvancedTextControls() {
@@ -823,6 +831,7 @@
         overlay = document.createElement("div");
         overlay.id = "loading-overlay";
         overlay.className = "loading-overlay";
+        overlay.style.display = "none";
         overlay.innerHTML = `<div class="progress-shell"><div class="loading-text" id="loading-text">${LOADING_MESSAGE}</div><div class="progress-track"><div class="progress-bar" style="width:0%"></div></div></div>`;
       }
 
@@ -895,10 +904,9 @@
     }
 
     function setLoading(isLoading, text = "Loading...", targetSelector, progress = 0) {
-      const globalOverlay = getLoadingOverlay();
-      const globalText = document.getElementById("loading-text");
-
       if (!targetSelector) {
+        const globalOverlay = getLoadingOverlay();
+        const globalText = document.getElementById("loading-text");
         if (globalText) globalText.textContent = LOADING_MESSAGE;
         if (globalOverlay) {
           globalOverlay.classList.toggle("active", isLoading);
@@ -915,14 +923,6 @@
 
       const target = document.querySelector(targetSelector);
       if (!target) {
-      // Use the main overlay if the requested target is unavailable.
-        if (globalText) globalText.textContent = LOADING_MESSAGE;
-        if (globalOverlay) {
-          globalOverlay.classList.toggle("active", isLoading);
-          globalOverlay.style.display = isLoading ? "flex" : "none";
-          if (isLoading) advanceGlobalProgress(progress);
-          else stopGlobalProgress();
-        }
         return;
       }
 
