@@ -27,6 +27,8 @@
     let cartDesignSavePromise = null;
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
+    let uploadStatusMessageTimer = null;
+    let uploadStatusMessageIndex = 0;
     let lastSwipeNavigationAt = 0;
     let cartDesignRevision = 0;
     let lastSavedCartDesignRevision = -1;
@@ -42,6 +44,7 @@
       "Sharpening your design...",
       "Your preview is almost ready!"
     ];
+    const GENERATION_STATUS_MESSAGE_MS = 3200;
 
     // Constants
     const INK_COLORS = {
@@ -673,18 +676,61 @@
 
       const label = uploadButton.querySelector(".upload-picture-label") || uploadButton;
       const clampedProgress = Math.max(0, Math.min(100, Math.round(progress || 0)));
-      const messageIndex = Math.min(
-        GENERATION_STATUS_MESSAGES.length - 1,
-        Math.floor((clampedProgress / 100) * GENERATION_STATUS_MESSAGES.length)
-      );
-      const message = GENERATION_STATUS_MESSAGES[messageIndex];
       uploadButton.classList.toggle("is-loading", isLoading);
       uploadButton.disabled = isLoading;
       uploadButton.style.setProperty("--upload-progress", isLoading ? `${clampedProgress}%` : "0%");
       uploadButton.setAttribute("aria-busy", isLoading ? "true" : "false");
-      label.innerHTML = isLoading
-        ? `<span class="upload-loader-content"><span class="upload-loader-percent">${clampedProgress}%</span><span class="upload-loader-roller"><span class="upload-loader-message">${message}</span></span></span>`
-        : "Upload Picture";
+
+      if (!isLoading) {
+        stopUploadStatusMessages();
+        label.textContent = "Upload Picture";
+        return;
+      }
+
+      if (!label.querySelector(".upload-loader-content")) {
+        label.innerHTML = '<span class="upload-loader-content"><span class="upload-loader-percent">0%</span><span class="upload-loader-roller"><span class="upload-loader-message"></span></span></span>';
+      }
+
+      const percent = label.querySelector(".upload-loader-percent");
+      if (percent) percent.textContent = `${clampedProgress}%`;
+
+      if (clampedProgress >= 100) {
+        stopUploadStatusMessages({ reset: false });
+        uploadStatusMessageIndex = GENERATION_STATUS_MESSAGES.length - 1;
+      } else {
+        startUploadStatusMessages();
+      }
+
+      refreshUploadStatusMessage();
+    }
+
+    function refreshUploadStatusMessage() {
+      const messageEl = document.querySelector("#drop-zone .upload-loader-message");
+      if (!messageEl) return;
+
+      const message = GENERATION_STATUS_MESSAGES[uploadStatusMessageIndex] || GENERATION_STATUS_MESSAGES[0];
+      if (messageEl.dataset.message === message) return;
+
+      messageEl.dataset.message = message;
+      messageEl.textContent = message;
+      messageEl.style.animation = "none";
+      void messageEl.offsetWidth;
+      messageEl.style.animation = "";
+    }
+
+    function startUploadStatusMessages() {
+      if (uploadStatusMessageTimer) return;
+
+      uploadStatusMessageTimer = setInterval(() => {
+        uploadStatusMessageIndex = (uploadStatusMessageIndex + 1) % GENERATION_STATUS_MESSAGES.length;
+        refreshUploadStatusMessage();
+      }, GENERATION_STATUS_MESSAGE_MS);
+    }
+
+    function stopUploadStatusMessages({ reset = true } = {}) {
+      if (uploadStatusMessageTimer) clearInterval(uploadStatusMessageTimer);
+      uploadStatusMessageTimer = null;
+      if (reset) uploadStatusMessageIndex = 0;
     }
 
     function stopUploadProgressTimer() {
@@ -694,6 +740,7 @@
     }
 
     function animateUploadProgress(progress = 0) {
+      if (!uploadProgressTimer && !uploadStatusMessageTimer) uploadStatusMessageIndex = 0;
       uploadProgressValue = Math.max(uploadProgressValue, Math.round(progress || 0));
       setUploadButtonLoading(true, uploadProgressValue);
 

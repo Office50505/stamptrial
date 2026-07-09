@@ -219,7 +219,7 @@
       font-size: 14px;
       font-weight: 650;
       letter-spacing: 0.2px;
-      animation: uploadButtonRoll 2.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+      animation: uploadButtonRoll 3.2s cubic-bezier(0.4, 0, 0.2, 1) both;
     }
 .line-art-button-spinner {
       display: inline-block;
