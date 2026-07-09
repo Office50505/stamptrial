@@ -26,7 +26,6 @@
     let cartDesignSavePromise = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
-    const GENERATION_LOADING_TARGET = "#step-pane-1 .glass-panel";
 
     // Constants
     const INK_COLORS = {
@@ -524,6 +523,15 @@
       }
     }
 
+    function setUploadButtonLoading(isLoading) {
+      const uploadButton = document.querySelector("#drop-zone .upload-picture-btn");
+      if (!uploadButton) return;
+
+      uploadButton.classList.toggle("is-loading", isLoading);
+      uploadButton.disabled = isLoading;
+      uploadButton.textContent = isLoading ? "Generating preview..." : "Upload Picture";
+    }
+
     function hideAdvancedTextControls() {
       [
         document.getElementById("font-family-select")?.closest(".control-group"),
@@ -982,13 +990,12 @@
       isGeneratingLineArt = true;
 
       const loadingStartedAt = Date.now();
-      setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 8);
+      setUploadButtonLoading(true);
       await nextPaint();
 
       try {
         const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
         sourceImageDataUrl = sourceForProcessing;
-        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 18);
 
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
@@ -1000,7 +1007,6 @@
           })
         });
 
-        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 58);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(data.detail || data.error || data.message || "Generation failed.");
@@ -1011,16 +1017,14 @@
           throw new Error("No generated images were returned.");
         }
 
-        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 70);
         await renderGeneratedVariants(imageUrls);
-        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 100);
         await sleep(Math.max(250, 700 - (Date.now() - loadingStartedAt)));
       } catch (err) {
         console.warn(err);
         alert("Could not generate line art variants. Please try another image.");
       } finally {
         isGeneratingLineArt = false;
-        setLoading(false, "", GENERATION_LOADING_TARGET);
+        setUploadButtonLoading(false);
       }
     }
 
@@ -1061,7 +1065,6 @@
       const variantNames = variantNameOverrides || ["Style 1", "Style 2", "Style 3", "Style 4"];
 
       for (let index = 0; index < urls.length; index++) {
-        setLoading(true, LOADING_MESSAGE, GENERATION_LOADING_TARGET, 70 + Math.round((index / urls.length) * 24));
         const img = await loadImageUrl(urls[index]);
         const lineArt = cleanLineArt(img, processingProfiles && processingProfiles[index]);
         generatedLineArtVariants[index] = lineArt;
