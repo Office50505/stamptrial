@@ -25,6 +25,8 @@
     let isSavingCartDesign = false;
     let isPreparingMockups = false;
     let cartDesignSavePromise = null;
+    let uploadProgressTimer = null;
+    let uploadProgressValue = 0;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
@@ -532,8 +534,37 @@
       label.textContent = isLoading ? `Generating preview... ${clampedProgress}%` : "Upload Picture";
     }
 
+    function stopUploadProgressTimer() {
+      if (uploadProgressTimer) clearInterval(uploadProgressTimer);
+      uploadProgressTimer = null;
+      uploadProgressValue = 0;
+    }
+
+    function animateUploadProgress(progress = 0) {
+      uploadProgressValue = Math.max(uploadProgressValue, Math.round(progress || 0));
+      setUploadButtonLoading(true, uploadProgressValue);
+
+      if (uploadProgressTimer) return;
+      uploadProgressTimer = setInterval(() => {
+        const cap = uploadProgressValue < 70 ? 88 : 94;
+        const step = uploadProgressValue < 35 ? 2 : uploadProgressValue < 70 ? 1 : 0.35;
+        uploadProgressValue = Math.min(cap, uploadProgressValue + step);
+        setUploadButtonLoading(true, uploadProgressValue);
+      }, 550);
+    }
+
     function setGenerationLoading(isLoading = false, progress = 0) {
-      setUploadButtonLoading(isLoading, progress);
+      if (isLoading) {
+        if (progress >= 100) {
+          stopUploadProgressTimer();
+          setUploadButtonLoading(true, 100);
+        } else {
+          animateUploadProgress(progress);
+        }
+      } else {
+        stopUploadProgressTimer();
+        setUploadButtonLoading(false);
+      }
 
       document
         .querySelectorAll(`${GENERATION_LOADING_TARGET} .section-loading-overlay`)
@@ -1036,7 +1067,6 @@
       isGeneratingLineArt = true;
 
       const loadingStartedAt = Date.now();
-      setUploadButtonLoading(true);
       setGenerationLoading(true, 8);
       await nextPaint();
 
@@ -1075,7 +1105,6 @@
         alert("Could not generate line art variants. Please try another image.");
       } finally {
         isGeneratingLineArt = false;
-        setUploadButtonLoading(false);
         setGenerationLoading(false);
       }
     }
