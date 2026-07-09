@@ -15,14 +15,20 @@
       --text: #111827;
       --muted: #6b7280;
       --muted-light: #9ca3af;
-      --accent: #111827;
-      --accent-hover: #1f2937;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #eff6ff;
+      --accent-border: #bfdbfe;
+      --accent-text: #1d4ed8;
       --success-bg: #ecfdf3;
       --success-text: #166534;
       --success-border: #bbf7d0;
       --warning-bg: #fffbeb;
       --warning-text: #92400e;
       --warning-border: #fde68a;
+      --neutral-bg: #f3f4f6;
+      --neutral-text: #374151;
+      --neutral-border: #e5e7eb;
       --radius: 8px;
     }
 
@@ -36,19 +42,19 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    header {
+    .topbar {
       position: sticky;
       top: 0;
       z-index: 5;
-      background: rgba(246, 246, 247, 0.96);
+      background: rgba(255, 255, 255, 0.96);
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(8px);
     }
 
-    .header-inner {
+    .topbar-inner {
       width: min(1440px, 100%);
       margin: 0 auto;
-      padding: 16px 20px;
+      padding: 12px 20px;
       display: flex;
       gap: 16px;
       align-items: center;
@@ -56,14 +62,35 @@
       flex-wrap: wrap;
     }
 
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 220px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0;
+      box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
+    }
+
     .heading-block {
       display: grid;
-      gap: 3px;
+      gap: 2px;
     }
 
     h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: 16px;
       line-height: 1.2;
       letter-spacing: 0;
     }
@@ -74,6 +101,53 @@
       line-height: 1.4;
     }
 
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-muted);
+    }
+
+    .nav-link {
+      min-height: 32px;
+      padding: 0 11px;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .nav-link.active {
+      background: #ffffff;
+      color: var(--accent-text);
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: var(--surface-muted);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .toolbar {
       display: flex;
       gap: 8px;
@@ -82,13 +156,14 @@
     }
 
     input, select, button, .download-btn, .open-link {
-      min-height: 38px;
+      min-height: 40px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       background: var(--surface);
       color: var(--text);
       font: inherit;
       font-size: 14px;
+      transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
     }
 
     input {
@@ -142,11 +217,12 @@
       width: min(1440px, 100%);
       margin: 0 auto;
       padding: 20px;
+      display: grid;
+      gap: 20px;
     }
 
     .summary {
       min-height: 44px;
-      margin-bottom: 14px;
       padding: 12px 14px;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -166,15 +242,14 @@
     }
 
     .summary-note {
-      font-size: 13px;
-      color: var(--muted);
+      font-size: 12px;
+      color: var(--muted-light);
     }
 
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
-      margin-bottom: 14px;
     }
 
     .metric-card {
@@ -184,16 +259,36 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+      display: grid;
+      gap: 10px;
+    }
+
+    .metric-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .metric-label {
-      margin-bottom: 8px;
       color: var(--muted);
       font-size: 12px;
       font-weight: 750;
       text-transform: uppercase;
       letter-spacing: 0;
     }
+
+    .metric-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--neutral-text);
+      box-shadow: 0 0 0 4px var(--neutral-bg);
+    }
+
+    .metric-card.success .metric-dot { background: var(--success-text); box-shadow: 0 0 0 4px var(--success-bg); }
+    .metric-card.warning .metric-dot { background: var(--warning-text); box-shadow: 0 0 0 4px var(--warning-bg); }
+    .metric-card.info .metric-dot { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 
     .metric-value {
       color: var(--text);
@@ -203,7 +298,6 @@
     }
 
     .category-tabs {
-      margin-bottom: 14px;
       padding: 4px;
       display: flex;
       gap: 4px;
@@ -232,15 +326,15 @@
     }
 
     .category-tab.active {
-      background: var(--text);
+      background: var(--accent);
       color: #ffffff;
-      border-color: var(--text);
+      border-color: var(--accent);
     }
 
     .grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 12px;
+      gap: 16px;
     }
 
     .card {
@@ -300,11 +394,23 @@
       flex: 0 0 auto;
       padding: 4px 8px;
       border-radius: 999px;
-      background: #f3f4f6;
-      border: 1px solid var(--border);
-      color: #374151;
+      background: var(--neutral-bg);
+      border: 1px solid var(--neutral-border);
+      color: var(--neutral-text);
       font-size: 12px;
       font-weight: 750;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
     }
 
     .badge.success {
@@ -317,6 +423,12 @@
       background: var(--warning-bg);
       border-color: var(--warning-border);
       color: var(--warning-text);
+    }
+
+    .badge.info {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent-text);
     }
 
     .meta {
@@ -339,6 +451,24 @@
       font-weight: 650;
     }
 
+    .meta-pill.info {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent-text);
+    }
+
+    .meta-pill.success {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+
+    .meta-pill.warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-border);
+      color: var(--warning-text);
+    }
+
     .images {
       padding: 14px;
       display: grid;
@@ -359,6 +489,12 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .image-cell:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 1px 6px rgba(17, 24, 39, 0.05);
     }
 
     .image-label {
@@ -430,17 +566,39 @@
     .settings {
       padding: 14px;
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      gap: 12px;
       grid-column: 2;
       grid-row: 2;
       align-content: start;
     }
 
+    .detail-section {
+      min-width: 0;
+      padding: 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .detail-section-title {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
     .setting {
       min-width: 0;
       padding: 9px 10px;
-      background: var(--surface-muted);
+      background: #ffffff;
       border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 12px;
@@ -462,12 +620,80 @@
     }
 
     .status {
-      padding: 28px;
+      padding: 32px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       background: var(--surface);
       color: var(--muted);
       text-align: center;
+    }
+
+    .empty-state {
+      max-width: 440px;
+      margin: 0 auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .empty-title {
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 760;
+    }
+
+    .empty-copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .skeleton-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .skeleton-card {
+      min-height: 238px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(300px, 42%) minmax(0, 1fr);
+    }
+
+    .skeleton-pane {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .skeleton-pane:first-child {
+      border-right: 1px solid var(--border);
+      background: var(--surface-muted);
+    }
+
+    .skeleton-line {
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #edf0f3 0%, #f7f8f9 50%, #edf0f3 100%);
+      background-size: 200% 100%;
+      animation: skeletonPulse 1.2s ease-in-out infinite;
+    }
+
+    .skeleton-line.wide { width: 78%; }
+    .skeleton-line.medium { width: 54%; }
+    .skeleton-line.short { width: 34%; }
+    .skeleton-image { height: 150px; border-radius: var(--radius); }
+
+    .is-loading .refresh-label {
+      opacity: 0.72;
+    }
+
+    @keyframes skeletonPulse {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
     }
 
     @media (max-width: 760px) {
@@ -476,12 +702,17 @@
       .card-head, .images, .settings { grid-column: 1; grid-row: auto; }
       .images { border-right: 0; border-bottom: 1px solid var(--border); }
       .images { grid-template-columns: 1fr; }
-      .settings { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
       input { width: 100%; }
       .toolbar { width: 100%; }
       .toolbar input, .toolbar select, .toolbar button { flex: 1 1 100%; }
       .grid { grid-template-columns: 1fr; }
       .image-actions.has-open { grid-template-columns: 1fr; }
+      .topbar-inner { align-items: stretch; }
+      .nav-actions { width: 100%; justify-content: space-between; }
+      .nav-links { flex: 1 1 auto; overflow-x: auto; }
+      .skeleton-card { grid-template-columns: 1fr; }
+      .skeleton-pane:first-child { border-right: 0; border-bottom: 1px solid var(--border); }
     }
 
     @media (min-width: 761px) and (max-width: 1180px) {
@@ -493,12 +724,20 @@
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-inner">
-      <div class="heading-block">
-        <h1>Line Art Dashboard</h1>
-        <div class="eyebrow">Review saved customer artwork and download production images.</div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SM</div>
+        <div class="heading-block">
+          <h1>StampMyMark Studio</h1>
+          <div class="eyebrow">Line art order dashboard</div>
+        </div>
       </div>
+      <nav class="nav-links" aria-label="Dashboard navigation">
+        <a class="nav-link active" href="/dashboard.html">Dashboard</a>
+        <a class="nav-link" href="#ordered">Orders</a>
+        <a class="nav-link" href="#settings">Settings</a>
+      </nav>
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search design id, text, size">
         <select id="limit">
@@ -506,7 +745,8 @@
           <option value="100" selected>Latest 100</option>
           <option value="200">Latest 200</option>
         </select>
-        <button id="refresh" class="primary" type="button">Refresh</button>
+        <button id="refresh" class="primary" type="button"><span class="refresh-label">Refresh</span></button>
+        <div class="avatar" title="Admin">A</div>
       </div>
     </div>
   </header>
@@ -584,20 +824,20 @@
 
     function renderMetrics(metrics) {
       document.getElementById("metrics").innerHTML = `
-        <div class="metric-card">
-          <div class="metric-label">Ordered</div>
+        <div class="metric-card success">
+          <div class="metric-top"><div class="metric-label">Ordered</div><span class="metric-dot"></span></div>
           <div class="metric-value">${metrics.ordered}</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Awaiting order</div>
+        <div class="metric-card warning">
+          <div class="metric-top"><div class="metric-label">Awaiting order</div><span class="metric-dot"></span></div>
           <div class="metric-value">${metrics.awaiting}</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Final ready</div>
+        <div class="metric-card info">
+          <div class="metric-top"><div class="metric-label">Final ready</div><span class="metric-dot"></span></div>
           <div class="metric-value">${metrics.finalReady}</div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Total saved</div>
+          <div class="metric-top"><div class="metric-label">Total saved</div><span class="metric-dot"></span></div>
           <div class="metric-value">${metrics.total}</div>
         </div>
       `;
@@ -662,6 +902,37 @@
       `;
     }
 
+    function emptyState(title, copy) {
+      return `
+        <div class="empty-state">
+          <div class="empty-title">${escapeHtml(title)}</div>
+          <div class="empty-copy">${escapeHtml(copy)}</div>
+        </div>
+      `;
+    }
+
+    function renderLoadingSkeleton() {
+      return `
+        <div class="skeleton-list" aria-label="Loading designs">
+          ${[1, 2].map(() => `
+            <div class="skeleton-card">
+              <div class="skeleton-pane">
+                <div class="skeleton-line skeleton-image"></div>
+                <div class="skeleton-line medium"></div>
+                <div class="skeleton-line short"></div>
+              </div>
+              <div class="skeleton-pane">
+                <div class="skeleton-line wide"></div>
+                <div class="skeleton-line medium"></div>
+                <div class="skeleton-line wide"></div>
+                <div class="skeleton-line short"></div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
     function designMatches(design, query) {
       if (!query) return true;
       const settings = design.settings || {};
@@ -696,12 +967,14 @@
       const content = document.getElementById("content");
       document.getElementById("summary").innerHTML = `
         <span><strong>${filtered.length}</strong> shown of <strong>${designs.length}</strong> saved design${designs.length === 1 ? "" : "s"}</span>
-        <span class="summary-note">Ordered designs appear first. Use PNG buttons for production downloads.</span>
+        <span class="summary-note">Ordered first. Download PNG for production handoff.</span>
       `;
 
       if (!filtered.length) {
         content.className = "status";
-        content.textContent = designs.length ? "No designs match the current search." : "No saved designs found.";
+        content.innerHTML = designs.length
+          ? emptyState("No matching designs", "Try another search term or switch tabs to see more saved artwork.")
+          : emptyState("No saved designs yet", "Generated customer designs will appear here once the storefront saves them.");
         return;
       }
 
@@ -709,6 +982,7 @@
       content.innerHTML = filtered.map((design) => {
         const settings = design.settings || {};
         const finalStatus = design.finalDesignUrl ? "Final saved" : "Variant only";
+        const finalBadgeClass = design.finalDesignUrl ? "info" : "warning";
         const orderLabel = design.orderName || (design.orderNumber ? `#${design.orderNumber}` : "-");
         const orderTitle = orderLabel === "-" ? "Awaiting Shopify order" : `Order ${orderLabel}`;
         const orderBadge = orderLabel === "-" ? "No order yet" : "Ordered";
@@ -727,9 +1001,9 @@
                 <div class="badge ${badgeClass}">${escapeHtml(orderBadge)}</div>
               </div>
               <div class="meta">
-                <span class="meta-pill">${escapeHtml(finalStatus)}</span>
+                <span class="meta-pill ${finalBadgeClass}">${escapeHtml(finalStatus)}</span>
                 <span class="meta-pill">Saved ${escapeHtml(formatDate(design.createdAt))}</span>
-                <span class="meta-pill">Customer ${escapeHtml(customerLabel)}</span>
+                <span class="meta-pill ${badgeClass}">${escapeHtml(orderBadge)}</span>
               </div>
             </div>
             <div class="images">
@@ -737,12 +1011,22 @@
               ${imageCell("Original upload", design.originalImageUrl, design.designId, "compact")}
             </div>
             <div class="settings">
-              <div class="setting"><strong>Order</strong>${escapeHtml(orderLabel)}</div>
-              <div class="setting"><strong>Order Date</strong>${escapeHtml(orderCreatedLabel)}</div>
-              <div class="setting"><strong>Customer</strong>${escapeHtml(customerLabel)}</div>
-              <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>
-              <div class="setting"><strong>Below Text</strong>${escapeHtml(settings.belowText || "-")}</div>
-              ${notes ? `<div class="setting wide"><strong>Designer Notes</strong>${escapeHtml(notes)}</div>` : ""}
+              <section class="detail-section">
+                <div class="detail-section-title">Order details</div>
+                <div class="detail-grid">
+                  <div class="setting"><strong>Order</strong>${escapeHtml(orderLabel)}</div>
+                  <div class="setting"><strong>Order Date</strong>${escapeHtml(orderCreatedLabel)}</div>
+                  <div class="setting wide"><strong>Customer</strong>${escapeHtml(customerLabel)}</div>
+                </div>
+              </section>
+              <section class="detail-section">
+                <div class="detail-section-title">Design content</div>
+                <div class="detail-grid">
+                  <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>
+                  <div class="setting"><strong>Below Text</strong>${escapeHtml(settings.belowText || "-")}</div>
+                  ${notes ? `<div class="setting wide"><strong>Designer Notes</strong>${escapeHtml(notes)}</div>` : ""}
+                </div>
+              </section>
             </div>
           </article>
         `;
@@ -840,8 +1124,12 @@
     async function loadDesigns() {
       const limit = document.getElementById("limit").value;
       const content = document.getElementById("content");
-      content.className = "status";
-      content.textContent = "Loading...";
+      const refreshButton = document.getElementById("refresh");
+      refreshButton.disabled = true;
+      refreshButton.classList.add("is-loading");
+      refreshButton.querySelector(".refresh-label").textContent = "Refreshing";
+      content.className = "grid";
+      content.innerHTML = renderLoadingSkeleton();
       document.getElementById("summary").textContent = "Loading designs...";
 
       try {
@@ -856,7 +1144,11 @@
         designs = [];
         document.getElementById("summary").textContent = "Dashboard error";
         content.className = "status";
-        content.textContent = error.message;
+        content.innerHTML = emptyState("Could not load designs", error.message);
+      } finally {
+        refreshButton.disabled = false;
+        refreshButton.classList.remove("is-loading");
+        refreshButton.querySelector(".refresh-label").textContent = "Refresh";
       }
     }
 

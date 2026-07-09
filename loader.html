@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Upload Loading — Rolling Status</title>
+<style>
+  :root{
+    --blue: #2f7dee;
+    --blue-dark: #2569d1;
+    --text: #1f2430;
+    --dim: #6b7280;
+    --bg: #ffffff;
+    --edge: #e7e9ee;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; min-height:100%;
+    background: var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .card{
+    width: 360px;
+    padding: 28px 24px;
+    text-align:center;
+  }
+
+  .viewers{
+    display:flex; align-items:center; justify-content:center;
+    gap:6px;
+    color: var(--dim);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .viewers svg{ width:15px; height:15px; opacity:0.7; }
+
+  /* the blue button, in a busy/disabled loading state */
+  .btn{
+    position:relative;
+    width:100%;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, var(--blue), var(--blue-dark));
+    color:#fff;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.2px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 8px 20px -8px rgba(47,125,238,0.55);
+    overflow:hidden;
+  }
+  .btn::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0;
+    width: var(--fill, 0%);
+    background: rgba(255,255,255,0.16);
+    transition: width 0.15s linear;
+  }
+  .btn::after{
+    content:"";
+    position:absolute; inset:0;
+    background: linear-gradient(100deg,
+      rgba(255,255,255,0) 30%,
+      rgba(255,255,255,0.22) 45%,
+      rgba(255,255,255,0) 60%);
+    background-size: 220% 100%;
+    animation: sheen 2.2s linear infinite;
+  }
+  @keyframes sheen{
+    0%   { background-position: 140% 0; }
+    100% { background-position: -60% 0; }
+  }
+
+  .percent{
+    position:absolute;
+    left: 16px;
+    top:50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.9);
+    font-weight:700;
+    font-size:13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* roller inside the button */
+  .roller{
+    height: 18px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  .roller-line{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    color: #ffffff;
+    font-weight:600;
+    font-size: 14px;
+    letter-spacing:0.2px;
+    white-space: nowrap;
+    opacity:0;
+    transform: translateY(100%);
+  }
+  .roller-line.active{
+    animation: rollIn 2.6s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  .roller-line.leaving{
+    animation: rollOut 2.6s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes rollIn{
+    0%   { opacity:0; transform: translateY(60%); }
+    18%  { opacity:1; transform: translateY(0%); }
+    82%  { opacity:1; transform: translateY(0%); }
+    100% { opacity:0; transform: translateY(0%); }
+  }
+  @keyframes rollOut{
+    0%   { opacity:1; transform: translateY(0%); }
+    100% { opacity:0; transform: translateY(-60%); }
+  }
+
+  /* progress dots under the roller */
+  .dots{
+    margin-top:12px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .dots i{
+    width:5px; height:5px; border-radius:50%;
+    background: var(--edge);
+    transition: background 0.3s ease;
+  }
+  .dots i.on{ background: var(--blue); }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="viewers">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      23 people are viewing this right now
+    </div>
+
+    <div class="btn" id="btn">
+      <div class="percent" id="percent">0%</div>
+      <div class="roller" id="roller"></div>
+    </div>
+
+    <div class="dots" id="dots"></div>
+  </div>
+
+<script>
+  const messages = [
+    "Analyzing your logo...",
+    "Tracing every detail...",
+    "Converting to crisp line art...",
+    "Refining the edges...",
+    "Sharpening your design...",
+    "Your preview is almost ready!"
+  ];
+
+  const roller = document.getElementById('roller');
+  const dotsWrap = document.getElementById('dots');
+  const percentEl = document.getElementById('percent');
+  const btn = document.getElementById('btn');
+  const STEP_MS = 2600;
+  const TOTAL_MS = messages.length * STEP_MS;
+
+  messages.forEach(() => {
+    const d = document.createElement('i');
+    dotsWrap.appendChild(d);
+  });
+  const dots = dotsWrap.querySelectorAll('i');
+
+  let idx = 0;
+
+  function showLine(i){
+    const line = document.createElement('div');
+    line.className = 'roller-line active';
+    line.textContent = messages[i];
+    roller.appendChild(line);
+
+    dots.forEach((d, di) => d.classList.toggle('on', di === i));
+
+    setTimeout(() => { line.remove(); }, STEP_MS);
+  }
+
+  showLine(idx);
+  setInterval(() => {
+    idx = (idx + 1) % messages.length;
+    showLine(idx);
+  }, STEP_MS);
+
+  // percentage counter + fill bar, looping in sync with the messages
+  const start = performance.now();
+  function tick(now){
+    const elapsed = (now - start) % TOTAL_MS;
+    const pct = Math.min(100, Math.round((elapsed / TOTAL_MS) * 100));
+    percentEl.textContent = pct + '%';
+    btn.style.setProperty('--fill', pct + '%');
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>

@@ -34,6 +34,14 @@
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
+    const GENERATION_STATUS_MESSAGES = [
+      "Analyzing your logo...",
+      "Tracing every detail...",
+      "Converting to crisp line art...",
+      "Refining the edges...",
+      "Sharpening your design...",
+      "Your preview is almost ready!"
+    ];
 
     // Constants
     const INK_COLORS = {
@@ -665,11 +673,18 @@
 
       const label = uploadButton.querySelector(".upload-picture-label") || uploadButton;
       const clampedProgress = Math.max(0, Math.min(100, Math.round(progress || 0)));
+      const messageIndex = Math.min(
+        GENERATION_STATUS_MESSAGES.length - 1,
+        Math.floor((clampedProgress / 100) * GENERATION_STATUS_MESSAGES.length)
+      );
+      const message = GENERATION_STATUS_MESSAGES[messageIndex];
       uploadButton.classList.toggle("is-loading", isLoading);
       uploadButton.disabled = isLoading;
       uploadButton.style.setProperty("--upload-progress", isLoading ? `${clampedProgress}%` : "0%");
       uploadButton.setAttribute("aria-busy", isLoading ? "true" : "false");
-      label.textContent = isLoading ? `Generating preview... ${clampedProgress}%` : "Upload Picture";
+      label.innerHTML = isLoading
+        ? `<span class="upload-loader-content"><span class="upload-loader-percent">${clampedProgress}%</span><span class="upload-loader-roller"><span class="upload-loader-message">${message}</span></span></span>`
+        : "Upload Picture";
     }
 
     function stopUploadProgressTimer() {
