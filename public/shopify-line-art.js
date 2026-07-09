@@ -253,6 +253,37 @@
       return cartDesignSavePromise;
     }
 
+    function getCartSubmitButton(form) {
+      return form.querySelector('button[type="submit"], input[type="submit"], button[name="add"], [name="add"]');
+    }
+
+    function setCartSubmitLoading(form, isLoading, label = "Adding to cart...") {
+      const button = getCartSubmitButton(form);
+      if (!button) return;
+
+      if (isLoading) {
+        if (!button.dataset.lineArtOriginalHtml) {
+          button.dataset.lineArtOriginalHtml = button.innerHTML;
+        }
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        if (button.tagName === "INPUT") {
+          if (!button.dataset.lineArtOriginalValue) button.dataset.lineArtOriginalValue = button.value;
+          button.value = label;
+        } else {
+          button.innerHTML = `<span class="line-art-button-spinner" aria-hidden="true"></span><span>${label}</span>`;
+        }
+      } else {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        if (button.tagName === "INPUT") {
+          button.value = button.dataset.lineArtOriginalValue || button.value;
+        } else if (button.dataset.lineArtOriginalHtml) {
+          button.innerHTML = button.dataset.lineArtOriginalHtml;
+        }
+      }
+    }
+
     function attachShopifyCartBridge() {
       ensureCartPropertyInputs();
       getShopifyProductForms().forEach((form) => {
@@ -265,11 +296,11 @@
 
           event.preventDefault();
           event.stopPropagation();
-          setLoading(true, "Saving your custom design...", null, 35);
+          setCartSubmitLoading(form, true, "Adding to cart...");
           const saved = await saveFinalDesignForCart();
-          setLoading(false, "", null);
 
           if (!saved) {
+            setCartSubmitLoading(form, false);
             alert("Please finish your custom line art before adding this product to cart.");
             return;
           }
@@ -282,6 +313,7 @@
           }
           setTimeout(() => {
             form.dataset.lineArtSubmitting = "false";
+            setCartSubmitLoading(form, false);
           }, 1000);
         }, true);
       });

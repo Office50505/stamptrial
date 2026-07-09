@@ -164,6 +164,17 @@
       color: #ffffff;
       cursor: wait;
     }
+.line-art-button-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      vertical-align: -2px;
+      animation: spin 0.75s linear infinite;
+    }
 .line-art-customizer-root .upload-step-layout .preview-card {
       display: none !important;
     }
