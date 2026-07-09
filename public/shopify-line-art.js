@@ -749,12 +749,13 @@
 
     function getProcessingImageDataUrl() {
       const canvas = document.createElement("canvas");
+      const processingSize = 768;
       if (sourceInputMode === "crop") {
-        drawCropToCanvas(canvas, 1024);
+        drawCropToCanvas(canvas, processingSize);
       } else {
-        drawWholeImageToCanvas(canvas, 1024);
+        drawWholeImageToCanvas(canvas, processingSize);
       }
-      return canvas.toDataURL("image/jpeg", 0.92);
+      return canvas.toDataURL("image/jpeg", 0.86);
     }
 
     function updateProgressUI(scope, progress, text) {

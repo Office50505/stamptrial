@@ -24,6 +24,32 @@ function isAllowedOrigin(origin) {
   }
 }
 
+function applyCorsHeaders(req, res) {
+  const origin = req.headers.origin;
+  if (!isAllowedOrigin(origin)) return false;
+
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    req.headers["access-control-request-headers"] || "Content-Type, Authorization"
+  );
+  return true;
+}
+
+app.use((req, res, next) => {
+  applyCorsHeaders(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.use(cors({
   origin(origin, callback) {
     if (isAllowedOrigin(origin)) {
@@ -321,6 +347,22 @@ app.get("/api/designs", async (req, res) => {
     console.error(error);
     res.status(500).json({ error: "Could not load designs" });
   }
+});
+
+app.use((error, req, res, _next) => {
+  applyCorsHeaders(req, res);
+  console.error(error);
+
+  if (res.headersSent) return;
+
+  const status = error.status || error.statusCode || 500;
+  const message = status === 413
+    ? "Uploaded image is too large. Please use an image under 10MB."
+    : status === 400
+      ? "Invalid request. Please try again."
+      : "Server error. Please try again.";
+
+  res.status(status).json({ error: message });
 });
 
 app.listen(port, () => {
