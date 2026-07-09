@@ -388,11 +388,13 @@ app.post("/api/save-design", async (req, res) => {
     const originalExt = extensionFromMime(parseDataUrl(originalImageDataUrl).mimeType);
     const variantExt = extensionFromMime(parseDataUrl(chosenVariantDataUrl).mimeType);
 
-    const originalImageUrl = await uploadToBunny(`designs/${designId}/original.${originalExt}`, originalImageDataUrl);
-    const chosenVariantUrl = await uploadToBunny(`designs/${designId}/chosen-variant.${variantExt}`, chosenVariantDataUrl);
-    const finalDesignUrl = finalDesignDataUrl
-      ? await uploadToBunny(`designs/${designId}/final-design.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
-      : null;
+    const [originalImageUrl, chosenVariantUrl, finalDesignUrl] = await Promise.all([
+      uploadToBunny(`designs/${designId}/original.${originalExt}`, originalImageDataUrl),
+      uploadToBunny(`designs/${designId}/chosen-variant.${variantExt}`, chosenVariantDataUrl),
+      finalDesignDataUrl
+        ? uploadToBunny(`designs/${designId}/final-design.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
+        : Promise.resolve(null)
+    ]);
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");

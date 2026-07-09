@@ -28,6 +28,9 @@
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
     let lastSwipeNavigationAt = 0;
+    let cartDesignRevision = 0;
+    let lastSavedCartDesignRevision = -1;
+    let cartDesignAutoSaveTimer = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
@@ -180,9 +183,29 @@
       setCartProperty("Notes For Designer", document.getElementById("designer-notes-input")?.value || "");
     }
 
-    function markCartDesignChanged() {
+    function markCartDesignChanged({ scheduleAutoSave = true } = {}) {
+      cartDesignRevision++;
       finalDesignImageUrl = "";
       syncCartProperties();
+      if (scheduleAutoSave) scheduleCartDesignAutoSave();
+    }
+
+    function clearCartDesignAutoSave() {
+      if (cartDesignAutoSaveTimer) clearTimeout(cartDesignAutoSaveTimer);
+      cartDesignAutoSaveTimer = null;
+    }
+
+    function scheduleCartDesignAutoSave(delay = 900) {
+      clearCartDesignAutoSave();
+      if (!sourceImageDataUrl || !selectedVariant || isGeneratingLineArt) return;
+
+      cartDesignAutoSaveTimer = setTimeout(() => {
+        cartDesignAutoSaveTimer = null;
+        if (!sourceImageDataUrl || !selectedVariant || finalDesignImageUrl || isGeneratingLineArt) return;
+        saveFinalDesignForCart({ silent: true }).catch((error) => {
+          console.warn("Background design save skipped:", error);
+        });
+      }, delay);
     }
 
     function renderFinalDesignDataUrl() {
@@ -201,48 +224,61 @@
       });
     }
 
-    async function saveFinalDesignForCart() {
+    async function uploadCurrentCartDesignSnapshot() {
+      const revisionAtStart = cartDesignRevision;
+      updateSvgLayout({ skipDirty: true });
+      const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
+      const finalDesignDataUrl = await renderFinalDesignDataUrl();
+      const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          originalImageDataUrl: sourceImageDataUrl,
+          chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
+          finalDesignDataUrl,
+          settings: {
+            sourceFileName,
+            selectedSize,
+            inkColor: currentInkColor,
+            aboveText: document.getElementById("above-text-input")?.value || "",
+            belowText: document.getElementById("below-text-input")?.value || "",
+            notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
+          }
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Design save failed.");
+      }
+
+      if (revisionAtStart !== cartDesignRevision) return false;
+
+      savedDesignId = data.designId || savedDesignId;
+      finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
+      lastSavedCartDesignRevision = revisionAtStart;
+      syncCartProperties();
+      return Boolean(finalDesignImageUrl);
+    }
+
+    async function saveFinalDesignForCart({ silent = false } = {}) {
       if (!sourceImageDataUrl || !selectedVariant) return false;
-      if (finalDesignImageUrl) return true;
+      if (finalDesignImageUrl && lastSavedCartDesignRevision === cartDesignRevision) return true;
       if (cartDesignSavePromise) return cartDesignSavePromise;
 
       cartDesignSavePromise = (async () => {
         isSavingCartDesign = true;
+        clearCartDesignAutoSave();
         try {
-          updateSvgLayout();
-          const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
-          const finalDesignDataUrl = await renderFinalDesignDataUrl();
-          const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              originalImageDataUrl: sourceImageDataUrl,
-              chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
-              finalDesignDataUrl,
-              settings: {
-                sourceFileName,
-                selectedSize,
-                inkColor: currentInkColor,
-                aboveText: document.getElementById("above-text-input")?.value || "",
-                belowText: document.getElementById("below-text-input")?.value || "",
-                notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
-              }
-            })
-          });
-
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(data.error || "Design save failed.");
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const saved = await uploadCurrentCartDesignSnapshot();
+            if (saved) return true;
           }
-
-          savedDesignId = data.designId || savedDesignId;
-          finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
-          syncCartProperties();
-          return Boolean(finalDesignImageUrl);
+          return false;
         } catch (err) {
-          console.warn("Final design save skipped:", err);
+          if (!silent) console.warn("Final design save skipped:", err);
           return false;
         } finally {
           isSavingCartDesign = false;
@@ -290,9 +326,18 @@
         if (form.dataset.lineArtBridgeReady === "true") return;
         form.dataset.lineArtBridgeReady = "true";
         form.addEventListener("submit", async (event) => {
-          if (form.dataset.lineArtSubmitting === "true" || !selectedVariant) return;
+          if (form.dataset.lineArtSubmitting === "true") return;
+
+          if (!sourceImageDataUrl || !selectedVariant) {
+            event.preventDefault();
+            event.stopPropagation();
+            alert("Please upload a photo and choose a style before adding this product to cart.");
+            navigateToStep(sourceImageDataUrl ? 2 : 1);
+            return;
+          }
+
           syncCartProperties();
-          if (finalDesignImageUrl) return;
+          if (finalDesignImageUrl && lastSavedCartDesignRevision === cartDesignRevision) return;
 
           event.preventDefault();
           event.stopPropagation();
@@ -445,6 +490,9 @@
       }
 
       sourceFileName = file.name;
+      clearCartDesignAutoSave();
+      cartDesignRevision++;
+      lastSavedCartDesignRevision = -1;
       savedDesignId = "";
       finalDesignImageUrl = "";
       selectedVariant = null;
@@ -771,7 +819,7 @@
       `;
 
       const notesInput = notesGroup.querySelector("#designer-notes-input");
-      notesInput.addEventListener("input", syncCartProperties);
+      notesInput.addEventListener("input", () => markCartDesignChanged());
       belowTextGroup.insertAdjacentElement("afterend", notesGroup);
     }
 
@@ -1351,7 +1399,7 @@
       });
 
       // Move forward automatically with small aesthetic delay
-        setTimeout(() => {
+      setTimeout(() => {
         // Init typography setting
         selectInkColor("black");
         updateSvgLayout();
@@ -1412,9 +1460,9 @@
     }
 
     // Dynamic SVG layout
-    function updateSvgLayout() {
+    function updateSvgLayout({ skipDirty = false } = {}) {
       if (!selectedVariant) return;
-      markCartDesignChanged();
+      if (!skipDirty) markCartDesignChanged();
 
       // Generate transparent line art image in chosen ink color
       const lineCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
@@ -1598,6 +1646,9 @@
       sourceImage = null;
       sourceImageDataUrl = "";
       selectedVariant = null;
+      clearCartDesignAutoSave();
+      cartDesignRevision++;
+      lastSavedCartDesignRevision = -1;
       savedDesignId = "";
       finalDesignImageUrl = "";
       generatedLineArtVariants = [];
