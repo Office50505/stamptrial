@@ -359,6 +359,11 @@
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("file-input");
 
+    dropZone.addEventListener("click", (event) => {
+      if (event.target.closest("button") || event.target === fileInput) return;
+      triggerFileSelect();
+    });
+
     dropZone.addEventListener("dragover", (e) => {
       e.preventDefault();
       dropZone.classList.add("dragging");
@@ -498,7 +503,22 @@
       const loadingText = document.getElementById("loading-text");
       if (loadingText) loadingText.textContent = LOADING_MESSAGE;
 
+      hideAdvancedTextControls();
       initDesignerNotesControl();
+    }
+
+    function hideAdvancedTextControls() {
+      [
+        document.getElementById("font-family-select")?.closest(".control-group"),
+        document.getElementById("radius-control-group"),
+        document.getElementById("below-radius-control-group"),
+        document.getElementById("above-curve-toggle-row"),
+        document.getElementById("below-curve-toggle-row"),
+        document.getElementById("above-size-slider")?.closest(".control-group"),
+        document.getElementById("below-size-slider")?.closest(".control-group")
+      ].forEach((element) => {
+        element?.classList.add("hidden");
+      });
     }
 
     function initDesignerNotesControl() {
