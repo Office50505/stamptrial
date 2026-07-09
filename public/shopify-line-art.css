@@ -146,7 +146,7 @@
       position: absolute;
       inset: 0 auto 0 0;
       width: var(--upload-progress, 0%);
-      background: rgba(255, 255, 255, 0.16);
+      background: rgba(10, 53, 120, 0.38);
       z-index: 0;
       transition: width 0.15s linear;
     }
