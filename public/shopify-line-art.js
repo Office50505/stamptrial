@@ -19,12 +19,13 @@
     let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
     let currentInkColor = "black";
     let selectedSize = 'l'; // m, l, xl, xxl
+    let isGeneratingLineArt = false;
     let savedDesignId = "";
     let finalDesignImageUrl = "";
     let isSavingCartDesign = false;
     let cartDesignSavePromise = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
-    const LOADING_MESSAGE = "Generating your line art...";
+    const LOADING_MESSAGE = "Generating preview...";
 
     // Constants
     const INK_COLORS = {
@@ -131,6 +132,7 @@
         "Ink Color",
         "Above Text",
         "Below Text",
+        "Notes For Designer",
         "Stamp Size"
       ];
 
@@ -171,6 +173,7 @@
       setCartProperty("Ink Color", currentInkColor);
       setCartProperty("Above Text", document.getElementById("above-text-input")?.value || "");
       setCartProperty("Below Text", document.getElementById("below-text-input")?.value || "");
+      setCartProperty("Notes For Designer", document.getElementById("designer-notes-input")?.value || "");
       setCartProperty("Stamp Size", selectedSize.toUpperCase());
     }
 
@@ -220,7 +223,8 @@
                 selectedSize,
                 inkColor: currentInkColor,
                 aboveText: document.getElementById("above-text-input")?.value || "",
-                belowText: document.getElementById("below-text-input")?.value || ""
+                belowText: document.getElementById("below-text-input")?.value || "",
+                notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
               }
             })
           });
@@ -380,6 +384,7 @@
 
     initSourceInputModeControls();
     initSeparateRadiusControls();
+    initSimplifiedFlowUi();
     initCropCanvas();
     initMobileStepSwipe();
 
@@ -393,7 +398,18 @@
         return;
       }
 
+      if (file.size > 10 * 1024 * 1024) {
+        alert("Please upload an image under 10MB.");
+        return;
+      }
+
       sourceFileName = file.name;
+      savedDesignId = "";
+      finalDesignImageUrl = "";
+      selectedVariant = null;
+      generatedLineArtVariants = [];
+      document.getElementById("variants-container").innerHTML = "";
+      syncCartProperties();
       document.getElementById("preview-filename").textContent = file.name;
 
       const reader = new FileReader();
@@ -406,7 +422,8 @@
           setSourceInputMode("whole");
           document.getElementById("upload-preview-card").classList.remove("hidden");
           document.getElementById("btn-process-image").removeAttribute("disabled");
-          document.getElementById("upload-status-text").textContent = "Image uploaded. Choose whole logo or crop.";
+          document.getElementById("upload-status-text").textContent = "Image uploaded. Generating preview...";
+          processSourceImage();
         };
         img.src = e.target.result;
       };
@@ -460,6 +477,47 @@
 
       belowGroup.querySelector("#below-radius-slider").addEventListener("input", updateSvgLayout);
       aboveGroup.insertAdjacentElement("afterend", belowGroup);
+    }
+
+    function initSimplifiedFlowUi() {
+      const processButton = document.getElementById("btn-process-image");
+      if (processButton) {
+        processButton.closest(".button-row")?.classList.add("hidden");
+      }
+
+      const variantsHeading = document.querySelector("#step-pane-2 h2");
+      if (variantsHeading) variantsHeading.textContent = "Choose a Style";
+
+      const variantBackButton = document.querySelector("#step-pane-2 .button-row .btn-secondary");
+      if (variantBackButton) {
+        const icon = variantBackButton.querySelector("svg");
+        variantBackButton.textContent = "Upload Different Image";
+        if (icon) variantBackButton.prepend(icon);
+      }
+
+      const loadingText = document.getElementById("loading-text");
+      if (loadingText) loadingText.textContent = LOADING_MESSAGE;
+
+      initDesignerNotesControl();
+    }
+
+    function initDesignerNotesControl() {
+      if (document.getElementById("designer-notes-input")) return;
+
+      const belowTextInput = document.getElementById("below-text-input");
+      const belowTextGroup = belowTextInput?.closest(".control-group");
+      if (!belowTextGroup) return;
+
+      const notesGroup = document.createElement("div");
+      notesGroup.className = "control-group designer-notes-group";
+      notesGroup.innerHTML = `
+        <label class="control-label">Notes For Your Designer (Optional)</label>
+        <textarea class="textarea-field" id="designer-notes-input" placeholder="Add any extra instructions..." rows="4"></textarea>
+      `;
+
+      const notesInput = notesGroup.querySelector("#designer-notes-input");
+      notesInput.addEventListener("input", syncCartProperties);
+      belowTextGroup.insertAdjacentElement("afterend", notesGroup);
     }
 
     function setSourceInputMode(mode) {
@@ -882,7 +940,8 @@
 
     // Convert process trigger
     async function processSourceImage() {
-      if (!sourceImage) return;
+      if (!sourceImage || isGeneratingLineArt) return;
+      isGeneratingLineArt = true;
 
       const loadingStartedAt = Date.now();
       setLoading(true, LOADING_MESSAGE, null, 8);
@@ -922,6 +981,7 @@
         console.warn(err);
         alert("Could not generate line art variants. Please try another image.");
       } finally {
+        isGeneratingLineArt = false;
         setLoading(false, "", null);
       }
     }
@@ -960,7 +1020,7 @@
       const container = document.getElementById("variants-container");
       container.innerHTML = "";
 
-      const variantNames = variantNameOverrides || ["Bold Logo Trace", "Clean Emblem Trace", "High Contrast Trace", "Solid Ink Trace"];
+      const variantNames = variantNameOverrides || ["Style 1", "Style 2", "Style 3", "Style 4"];
 
       for (let index = 0; index < urls.length; index++) {
         setLoading(true, LOADING_MESSAGE, null, 70 + Math.round((index / urls.length) * 24));
@@ -1030,7 +1090,10 @@
               sourceFileName,
               selectedVariantIndex: index,
               selectedSize,
-              inkColor: currentInkColor
+              inkColor: currentInkColor,
+              aboveText: document.getElementById("above-text-input")?.value || "",
+              belowText: document.getElementById("below-text-input")?.value || "",
+              notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
             }
           })
         });
@@ -1333,6 +1396,8 @@
       document.getElementById("upload-status-text").textContent = "Drag & drop photo here";
       document.getElementById("above-text-input").value = "";
       document.getElementById("below-text-input").value = "";
+      const notesInput = document.getElementById("designer-notes-input");
+      if (notesInput) notesInput.value = "";
       document.getElementById("file-input").value = "";
       setSourceInputMode("whole");
       resetCropControls();
@@ -1798,6 +1863,7 @@
       updateCropPreview,
       setSourceInputMode,
       setSize,
+      syncCartProperties,
       updateSvgLayout,
       toggleRadiusControl,
       proceedToMockups,
