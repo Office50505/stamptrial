@@ -594,6 +594,62 @@
         : 'Apply to Mockups<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>';
     }
 
+    function ensureFullscreenViewer() {
+      let viewer = document.getElementById("line-art-fullscreen-viewer");
+      if (viewer) return viewer;
+
+      viewer = document.createElement("div");
+      viewer.id = "line-art-fullscreen-viewer";
+      viewer.className = "line-art-fullscreen-viewer";
+      viewer.innerHTML = `
+        <button class="fullscreen-close-btn" type="button" aria-label="Close preview">Close</button>
+        <div class="fullscreen-image-shell">
+          <img class="fullscreen-image" alt="">
+          <div class="fullscreen-caption"></div>
+        </div>
+      `;
+
+      viewer.addEventListener("click", (event) => {
+        if (event.target === viewer || event.target.closest(".fullscreen-close-btn")) {
+          closeFullscreenImage();
+        }
+      });
+
+      document.body.appendChild(viewer);
+      return viewer;
+    }
+
+    function openFullscreenImage(src, caption = "Preview") {
+      if (!src) return;
+      const viewer = ensureFullscreenViewer();
+      const image = viewer.querySelector(".fullscreen-image");
+      const captionEl = viewer.querySelector(".fullscreen-caption");
+      image.src = src;
+      image.alt = caption;
+      captionEl.textContent = caption;
+      viewer.classList.add("active");
+      document.body.classList.add("line-art-fullscreen-open");
+
+      if (viewer.requestFullscreen && !document.fullscreenElement) {
+        viewer.requestFullscreen().catch(() => {});
+      }
+    }
+
+    function closeFullscreenImage() {
+      const viewer = document.getElementById("line-art-fullscreen-viewer");
+      if (!viewer) return;
+      viewer.classList.remove("active");
+      document.body.classList.remove("line-art-fullscreen-open");
+
+      if (document.fullscreenElement === viewer && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeFullscreenImage();
+    });
+
     function hideAdvancedTextControls() {
       [
         document.querySelector(".size-selector")?.closest(".control-group"),
@@ -1162,11 +1218,24 @@
           <div class="variant-header">
             <span class="variant-title">${variantNames[index] || `Variant ${index + 1}`}</span>
           </div>
-          <div class="variant-preview-container">
+          <div class="variant-preview-container" role="button" tabindex="0" aria-label="Open ${variantNames[index] || `Variant ${index + 1}`} fullscreen">
             <img src="${displayUrl}" alt="${variantNames[index] || `Variant ${index + 1}`}">
           </div>
           <button class="variant-select-btn">Choose Variant</button>
         `;
+
+        const preview = card.querySelector(".variant-preview-container");
+        const openPreview = (event) => {
+          event.stopPropagation();
+          openFullscreenImage(displayUrl, variantNames[index] || `Variant ${index + 1}`);
+        };
+        preview.addEventListener("click", openPreview);
+        preview.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openPreview(event);
+          }
+        });
 
         container.appendChild(card);
       }
@@ -1405,10 +1474,20 @@
 
             card.innerHTML = `
               <div class="mockup-title">${mockup.title}</div>
-              <div class="mockup-image-container">
+              <div class="mockup-image-container" role="button" tabindex="0" aria-label="Open ${mockup.title} fullscreen">
                 <img src="${resultUrl}" alt="${mockup.title}">
               </div>
             `;
+
+            const mockupPreview = card.querySelector(".mockup-image-container");
+            const openMockup = () => openFullscreenImage(resultUrl, mockup.title);
+            mockupPreview.addEventListener("click", openMockup);
+            mockupPreview.addEventListener("keydown", (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMockup();
+              }
+            });
 
             container.appendChild(card);
             successCount++;
