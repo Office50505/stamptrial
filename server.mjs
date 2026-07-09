@@ -334,6 +334,9 @@ app.post("/api/generate-line-art", async (req, res) => {
       return;
     }
 
+    const sourceExt = extensionFromMime(parseDataUrl(imageDataUrl).mimeType);
+    const sourceImageUrl = await uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
+
     const response = await fetch("https://fal.run/openai/gpt-image-2/edit", {
       method: "POST",
       headers: {
@@ -342,7 +345,7 @@ app.post("/api/generate-line-art", async (req, res) => {
       },
       body: JSON.stringify({
         prompt: LINE_ART_PROMPT,
-        image_urls: [imageDataUrl],
+        image_urls: [sourceImageUrl],
         image_size: "auto",
         quality: "low",
         num_images: 4,
@@ -353,6 +356,10 @@ app.post("/api/generate-line-art", async (req, res) => {
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      console.warn("Line art provider rejected request", {
+        status: response.status,
+        detail: data.detail || data.error || data.message || data
+      });
       res.status(response.status).json({ error: data.detail || data.error || data.message || "Generation failed" });
       return;
     }
