@@ -708,8 +708,13 @@
     }
 
     function getLoadingOverlay() {
-      const overlay = document.getElementById("loading-overlay");
-      if (!overlay) return null;
+      let overlay = document.getElementById("loading-overlay");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "loading-overlay";
+        overlay.className = "loading-overlay";
+        overlay.innerHTML = `<div class="progress-shell"><div class="loading-text" id="loading-text">${LOADING_MESSAGE}</div><div class="progress-track"><div class="progress-bar" style="width:0%"></div></div></div>`;
+      }
 
       if (overlay.parentElement !== document.body) {
         document.body.appendChild(overlay);
