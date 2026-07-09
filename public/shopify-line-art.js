@@ -509,6 +509,31 @@
       initUploadPictureButton();
       hideAdvancedTextControls();
       initDesignerNotesControl();
+      initNoMockupCustomizerFlow();
+    }
+
+    function initNoMockupCustomizerFlow() {
+      document.getElementById("step-pane-4")?.classList.add("hidden");
+
+      const customizePanel = document.querySelector("#step-pane-3 .glass-panel");
+      const customizeLayout = document.querySelector("#step-pane-3 .customize-layout");
+      const bottomRow = document.querySelector("#step-pane-3 .button-row");
+      const backButton = bottomRow?.querySelector(".btn-secondary");
+      const applyButton = bottomRow?.querySelector(".btn-primary");
+
+      applyButton?.remove();
+
+      if (customizePanel && customizeLayout && backButton && !document.querySelector("#step-pane-3 .customizer-top-actions")) {
+        const topActions = document.createElement("div");
+        topActions.className = "customizer-top-actions";
+        backButton.textContent = "Back to Styles";
+        topActions.appendChild(backButton);
+        customizePanel.insertBefore(topActions, customizeLayout);
+      }
+
+      if (bottomRow && !bottomRow.children.length) {
+        bottomRow.remove();
+      }
     }
 
     function initUploadPictureButton() {
@@ -1322,8 +1347,6 @@
       if (!selectedVariant) return;
       markCartDesignChanged();
 
-      const inkColorHex = INK_HEX[currentInkColor] || INK_HEX.black;
-
       // Generate transparent line art image in chosen ink color
       const lineCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
       const transparentDataUrl = lineCanvas.toDataURL("image/png");
@@ -1332,21 +1355,8 @@
       const svgImage = document.getElementById("svg-image-element");
       svgImage.setAttribute("href", transparentDataUrl);
 
-      // Extract slider inputs
-      const fontFam = document.getElementById("font-family-select").value;
-      const aboveTextRadius = parseInt(document.getElementById("radius-slider").value);
-      const belowTextRadius = parseInt(document.getElementById("below-radius-slider")?.value || aboveTextRadius);
-      const aboveTextVal = document.getElementById("above-text-input").value.trim().toUpperCase();
-      const belowTextVal = document.getElementById("below-text-input").value.trim().toUpperCase();
-      const aboveCurved = document.getElementById("above-curved-toggle").checked;
-      const belowCurved = document.getElementById("below-curved-toggle").checked;
-      const aboveSize = document.getElementById("above-size-slider").value;
-      const belowSize = document.getElementById("below-size-slider").value;
-      const hasText = Boolean(aboveTextVal || belowTextVal);
-
-      // Fit and center the artwork. Large sizes need extra breathing room for text arcs.
-      const fitMap = hasText ? SIZE_MAP_WITH_TEXT : SIZE_MAP;
-      const maxFitSize = fitMap[selectedSize] || 300;
+      // Fit and center the artwork only; text is saved for the designer but not rendered in preview.
+      const maxFitSize = SIZE_MAP[selectedSize] || 300;
       const scale = Math.min(maxFitSize / lineCanvas.width, maxFitSize / lineCanvas.height);
       const drawW = lineCanvas.width * scale;
       const drawH = lineCanvas.height * scale;
@@ -1358,87 +1368,8 @@
       svgImage.setAttribute("width", drawW);
       svgImage.setAttribute("height", drawH);
 
-      // Update slider value displays
-      document.getElementById("val-radius-slider").textContent = `${aboveTextRadius * 2}px`;
-      const belowRadiusDisplay = document.getElementById("val-below-radius-slider");
-      if (belowRadiusDisplay) belowRadiusDisplay.textContent = `${belowTextRadius * 2}px`;
-      document.getElementById("val-above-size").textContent = `${aboveSize}px`;
-      document.getElementById("val-below-size").textContent = `${belowSize}px`;
-
-      // Update paths
-      // Above text curve path: clockwise circular arc left-to-right on top (sweep-flag = 1)
-      const dAbove = `M ${250 - aboveTextRadius},250 A ${aboveTextRadius},${aboveTextRadius} 0 0,1 ${250 + aboveTextRadius},250`;
-      document.getElementById("above-text-path").setAttribute("d", dAbove);
-
-      // Below text curve path: counter-clockwise circular arc left-to-right on bottom (sweep-flag = 0)
-      const dBelow = `M ${250 - belowTextRadius},250 A ${belowTextRadius},${belowTextRadius} 0 0,0 ${250 + belowTextRadius},250`;
-      document.getElementById("below-text-path").setAttribute("d", dBelow);
-
-      // ABOVE TEXT GROUP rendering
-      const aboveGroup = document.getElementById("above-text-group");
-      aboveGroup.innerHTML = "";
-
-      if (aboveTextVal) {
-        const textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        textElement.setAttribute("fill", inkColorHex);
-        textElement.setAttribute("font-family", fontFam);
-        textElement.setAttribute("font-size", aboveSize);
-        textElement.setAttribute("font-weight", "600");
-        textElement.setAttribute("letter-spacing", "2");
-        textElement.className.baseVal = "svg-text-above";
-
-        if (aboveCurved) {
-          const textPathElement = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
-          textPathElement.setAttribute("href", "#above-text-path");
-          textPathElement.setAttribute("startOffset", "50%");
-          textPathElement.setAttribute("text-anchor", "middle");
-          textPathElement.textContent = aboveTextVal;
-          textElement.appendChild(textPathElement);
-        } else {
-          // Straight text: spacing depends on chosen stamp size
-          const padMap = { m: 8, l: 24, xl: 36, xxl: 48 };
-          const pad = padMap[selectedSize] || 24;
-          const aboveY = Math.max(18, drawY - pad);
-          textElement.setAttribute("x", "250");
-          textElement.setAttribute("y", `${aboveY}`);
-          textElement.setAttribute("text-anchor", "middle");
-          textElement.textContent = aboveTextVal;
-        }
-        aboveGroup.appendChild(textElement);
-      }
-
-      // BELOW TEXT GROUP rendering
-      const belowGroup = document.getElementById("below-text-group");
-      belowGroup.innerHTML = "";
-
-      if (belowTextVal) {
-        const textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        textElement.setAttribute("fill", inkColorHex);
-        textElement.setAttribute("font-family", fontFam);
-        textElement.setAttribute("font-size", belowSize);
-        textElement.setAttribute("font-weight", "600");
-        textElement.setAttribute("letter-spacing", "2");
-        textElement.className.baseVal = "svg-text-below";
-
-        if (belowCurved) {
-          const textPathElement = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
-          textPathElement.setAttribute("href", "#below-text-path");
-          textPathElement.setAttribute("startOffset", "50%");
-          textPathElement.setAttribute("text-anchor", "middle");
-          textPathElement.textContent = belowTextVal;
-          textElement.appendChild(textPathElement);
-        } else {
-          // Straight text: spacing depends on chosen stamp size
-          const padMap = { m: 8, l: 24, xl: 36, xxl: 48 };
-          const pad = padMap[selectedSize] || 24;
-          const belowY = Math.min(480, drawY + drawH + pad + 8);
-          textElement.setAttribute("x", "250");
-          textElement.setAttribute("y", `${belowY}`);
-          textElement.setAttribute("text-anchor", "middle");
-          textElement.textContent = belowTextVal;
-        }
-        belowGroup.appendChild(textElement);
-      }
+      document.getElementById("above-text-group").innerHTML = "";
+      document.getElementById("below-text-group").innerHTML = "";
       syncCartProperties();
     }
 
