@@ -18,7 +18,7 @@
     let generatedLineArtVariants = []; // Stores generated line art canvases
     let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
     let currentInkColor = "black";
-    let selectedSize = 'l'; // m, l, xl, xxl
+    let selectedSize = 'xxl'; // fixed default size
     let isGeneratingLineArt = false;
     let savedDesignId = "";
     let finalDesignImageUrl = "";
@@ -132,8 +132,7 @@
         "Ink Color",
         "Above Text",
         "Below Text",
-        "Notes For Designer",
-        "Stamp Size"
+        "Notes For Designer"
       ];
 
       getShopifyProductForms().forEach((form) => {
@@ -174,7 +173,6 @@
       setCartProperty("Above Text", document.getElementById("above-text-input")?.value || "");
       setCartProperty("Below Text", document.getElementById("below-text-input")?.value || "");
       setCartProperty("Notes For Designer", document.getElementById("designer-notes-input")?.value || "");
-      setCartProperty("Stamp Size", selectedSize.toUpperCase());
     }
 
     function markCartDesignChanged() {
@@ -398,8 +396,9 @@
     }
 
     function handleFileSelect(file) {
-      if (!file.type.startsWith("image/")) {
-        alert("Please select a valid image file.");
+      const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        alert("Please select a PNG, JPEG, or WEBP image.");
         return;
       }
 
@@ -529,11 +528,22 @@
 
       uploadButton.classList.toggle("is-loading", isLoading);
       uploadButton.disabled = isLoading;
-      uploadButton.textContent = isLoading ? "Generating preview..." : "Upload Picture";
+      if (isLoading && sourceImageDataUrl) {
+        uploadButton.textContent = "";
+        const thumb = document.createElement("span");
+        thumb.className = "upload-loading-thumb";
+        thumb.style.backgroundImage = `url("${sourceImageDataUrl}")`;
+        const label = document.createElement("span");
+        label.textContent = "Generating preview...";
+        uploadButton.append(thumb, label);
+      } else {
+        uploadButton.textContent = "Upload Picture";
+      }
     }
 
     function hideAdvancedTextControls() {
       [
+        document.querySelector(".size-selector")?.closest(".control-group"),
         document.getElementById("font-family-select")?.closest(".control-group"),
         document.getElementById("radius-control-group"),
         document.getElementById("below-radius-control-group"),

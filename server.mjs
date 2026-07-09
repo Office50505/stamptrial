@@ -60,9 +60,6 @@ app.use(cors({
   }
 }));
 
-app.use(express.json({ limit: "35mb" }));
-app.use(express.static("public"));
-
 let mongoClientPromise;
 
 function requiredEnv(name) {
@@ -79,6 +76,88 @@ function getMongoClient() {
   }
   return mongoClientPromise;
 }
+
+function verifyShopifyWebhook(rawBody, hmacHeader) {
+  if (!hmacHeader) return false;
+
+  const calculated = crypto
+    .createHmac("sha256", requiredEnv("SHOPIFY_WEBHOOK_SECRET"))
+    .update(rawBody)
+    .digest("base64");
+
+  const receivedBuffer = Buffer.from(hmacHeader, "base64");
+  const calculatedBuffer = Buffer.from(calculated, "base64");
+  if (receivedBuffer.length !== calculatedBuffer.length) return false;
+
+  return crypto.timingSafeEqual(receivedBuffer, calculatedBuffer);
+}
+
+function getLineItemProperty(lineItem, propertyName) {
+  const target = propertyName.toLowerCase();
+  const property = (lineItem.properties || []).find((item) =>
+    String(item.name || "").trim().toLowerCase() === target
+  );
+  return property ? String(property.value || "").trim() : "";
+}
+
+function getOrderCustomerName(order) {
+  const customer = order.customer || {};
+  return [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
+}
+
+app.post("/api/shopify/orders-create", express.raw({ type: "application/json", limit: "5mb" }), async (req, res) => {
+  try {
+    const hmac = req.get("x-shopify-hmac-sha256");
+    if (!verifyShopifyWebhook(req.body, hmac)) {
+      res.status(401).send("Invalid webhook signature");
+      return;
+    }
+
+    const order = JSON.parse(req.body.toString("utf8"));
+    const shopDomain = req.get("x-shopify-shop-domain") || "";
+    const webhookId = req.get("x-shopify-webhook-id") || "";
+    const lineItems = Array.isArray(order.line_items) ? order.line_items : [];
+    const designIds = Array.from(new Set(
+      lineItems
+        .map((lineItem) => getLineItemProperty(lineItem, "Design ID"))
+        .filter(Boolean)
+    ));
+
+    if (!designIds.length) {
+      res.status(200).send("No design IDs found");
+      return;
+    }
+
+    const orderPayload = {
+      orderId: String(order.id || ""),
+      orderName: order.name || (order.order_number ? `#${order.order_number}` : ""),
+      orderNumber: order.order_number || "",
+      orderCreatedAt: order.created_at ? new Date(order.created_at) : new Date(),
+      shopDomain,
+      customerEmail: order.email || order.contact_email || "",
+      customerName: getOrderCustomerName(order),
+      updatedAt: new Date()
+    };
+
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    await db.collection("designs").updateMany(
+      { designId: { $in: designIds } },
+      {
+        $set: orderPayload,
+        ...(webhookId ? { $addToSet: { webhookIds: webhookId } } : {})
+      }
+    );
+
+    res.status(200).send("OK");
+  } catch (error) {
+    console.error("Shopify orders/create webhook failed:", error);
+    res.status(500).send("Webhook failed");
+  }
+});
+
+app.use(express.json({ limit: "35mb" }));
+app.use(express.static("public"));
 
 function getGeneratedImageUrls(data) {
   const images = Array.isArray(data.images)
@@ -335,6 +414,12 @@ app.get("/api/designs", async (req, res) => {
           chosenVariantUrl: 1,
           finalDesignUrl: 1,
           settings: 1,
+          orderId: 1,
+          orderName: 1,
+          orderNumber: 1,
+          orderCreatedAt: 1,
+          customerEmail: 1,
+          customerName: 1,
           createdAt: 1
         }
       })

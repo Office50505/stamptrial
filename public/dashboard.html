@@ -462,6 +462,11 @@
       const settings = design.settings || {};
       const haystack = [
         design.designId,
+        design.orderName,
+        design.orderNumber,
+        design.orderId,
+        design.customerEmail,
+        design.customerName,
         settings.sourceFileName,
         settings.selectedSize,
         normalizeSize(settings.selectedSize),
@@ -491,16 +496,19 @@
       content.innerHTML = filtered.map((design) => {
         const settings = design.settings || {};
         const finalStatus = design.finalDesignUrl ? "Final saved" : "Variant only";
+        const orderLabel = design.orderName || (design.orderNumber ? `#${design.orderNumber}` : "-");
+        const orderBadge = orderLabel === "-" ? "No order yet" : orderLabel;
         return `
           <article class="card">
             <div class="card-head">
               <div class="title-row">
                 <div class="design-id">${escapeHtml(design.designId || "No design id")}</div>
-                <div class="badge">${escapeHtml(normalizeSize(settings.selectedSize))}</div>
+                <div class="badge">${escapeHtml(orderBadge)}</div>
               </div>
               <div class="meta">
                 <span>${escapeHtml(formatDate(design.createdAt))}</span>
                 <span>${escapeHtml(finalStatus)}</span>
+                <span>Order ${escapeHtml(orderLabel)}</span>
               </div>
             </div>
             <div class="images">
@@ -509,8 +517,9 @@
               ${imageCell("Final design", design.finalDesignUrl, design.designId)}
             </div>
             <div class="settings">
+              <div class="setting"><strong>Order</strong>${escapeHtml(orderLabel)}</div>
               <div class="setting"><strong>File</strong>${escapeHtml(settings.sourceFileName || "-")}</div>
-              <div class="setting"><strong>Size</strong>${escapeHtml(normalizeSize(settings.selectedSize))}</div>
+              <div class="setting"><strong>Customer</strong>${escapeHtml(design.customerName || design.customerEmail || "-")}</div>
               <div class="setting"><strong>Ink</strong>${escapeHtml(settings.inkColor || "-")}</div>
               <div class="setting"><strong>Variant</strong>${escapeHtml(settings.selectedVariantIndex ?? "-")}</div>
               <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>

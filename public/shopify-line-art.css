@@ -151,14 +151,15 @@
       border-color: #0f83d1;
       cursor: wait;
     }
-.line-art-customizer-root .upload-picture-btn.is-loading::before {
-      content: "";
-      width: 13px;
-      height: 13px;
-      border: 2px solid rgba(255, 255, 255, 0.45);
-      border-top-color: #ffffff;
+.line-art-customizer-root .upload-loading-thumb {
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      background-size: cover;
+      background-position: center;
+      border: 2px solid rgba(255, 255, 255, 0.72);
+      box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08);
+      animation: uploadThumbSpin 1.4s linear infinite, uploadThumbPulse 1.4s ease-in-out infinite;
     }
 .line-art-customizer-root .upload-step-layout .preview-card {
       display: none !important;
@@ -751,6 +752,19 @@
     @keyframes spin {
       to {
         transform: rotate(360deg);
+      }
+    }
+    @keyframes uploadThumbSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @keyframes uploadThumbPulse {
+      0%, 100% {
+        opacity: 0.82;
+      }
+      50% {
+        opacity: 1;
       }
     }
 .line-art-customizer-root /* Utilities */
