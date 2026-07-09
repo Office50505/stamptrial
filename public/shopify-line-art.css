@@ -125,11 +125,7 @@
       display: none;
     }
 .line-art-customizer-root .upload-required-marker {
-      width: 100%;
-      color: var(--text-primary);
-      font-size: 14px;
-      line-height: 1;
-      text-align: left;
+      display: none !important;
     }
 .line-art-customizer-root .upload-picture-btn {
       width: 100%;
@@ -141,6 +137,21 @@
       font-size: 13px;
       font-weight: 600;
       position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+.line-art-customizer-root .upload-picture-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--upload-progress, 0%);
+      background: #0b74bb;
+      z-index: 0;
+      transition: width 0.25s ease;
+    }
+.line-art-customizer-root .upload-picture-label {
+      position: relative;
+      z-index: 1;
     }
 .line-art-customizer-root .upload-picture-btn:hover {
       background: #0f83d1;

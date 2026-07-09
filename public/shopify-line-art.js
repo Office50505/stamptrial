@@ -512,27 +512,28 @@
       const uploadButton = document.querySelector("#drop-zone .btn-secondary");
       if (!uploadButton) return;
 
-      uploadButton.textContent = "Upload Picture";
+      uploadButton.innerHTML = '<span class="upload-picture-label">Upload Picture</span>';
       uploadButton.classList.add("upload-picture-btn");
-
-      if (!document.querySelector("#drop-zone .upload-required-marker")) {
-        const marker = document.createElement("div");
-        marker.className = "upload-required-marker";
-        marker.textContent = "*";
-        uploadButton.insertAdjacentElement("beforebegin", marker);
-      }
+      uploadButton.style.setProperty("--upload-progress", "0%");
+      document.querySelectorAll("#drop-zone .upload-required-marker").forEach((marker) => marker.remove());
     }
 
-    function setUploadButtonLoading(isLoading) {
+    function setUploadButtonLoading(isLoading, progress = 0) {
       const uploadButton = document.querySelector("#drop-zone .upload-picture-btn");
       if (!uploadButton) return;
 
+      const label = uploadButton.querySelector(".upload-picture-label") || uploadButton;
+      const clampedProgress = Math.max(0, Math.min(100, Math.round(progress || 0)));
       uploadButton.classList.toggle("is-loading", isLoading);
       uploadButton.disabled = isLoading;
-      uploadButton.textContent = isLoading ? "Generating preview..." : "Upload Picture";
+      uploadButton.style.setProperty("--upload-progress", isLoading ? `${clampedProgress}%` : "0%");
+      uploadButton.setAttribute("aria-busy", isLoading ? "true" : "false");
+      label.textContent = isLoading ? `Generating preview... ${clampedProgress}%` : "Upload Picture";
     }
 
-    function setGenerationLoading() {
+    function setGenerationLoading(isLoading = false, progress = 0) {
+      setUploadButtonLoading(isLoading, progress);
+
       document
         .querySelectorAll(`${GENERATION_LOADING_TARGET} .section-loading-overlay`)
         .forEach((overlay) => overlay.remove());
