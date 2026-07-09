@@ -1187,10 +1187,6 @@
 
     // Step 4: Composing on backgrounds
     async function proceedToMockups() {
-      const loadingStartedAt = Date.now();
-      setLoading(true, LOADING_MESSAGE, null, 12);
-      await nextPaint();
-
       const container = document.getElementById("mockups-container");
       container.innerHTML = "";
 
@@ -1201,7 +1197,6 @@
         document.getElementById("svg-bg-rect").setAttribute("fill", "none");
 
         // Convert SVG to self-contained Overlay Image
-        setLoading(true, LOADING_MESSAGE, null, 25);
         const svgOverlayImg = await svgToImage(svgElement);
 
         let successCount = 0;
@@ -1209,7 +1204,6 @@
         for (let i = 0; i < DEFAULT_BACKGROUNDS.length; i++) {
           const mockup = DEFAULT_BACKGROUNDS[i];
           try {
-            setLoading(true, LOADING_MESSAGE, null, 35 + Math.round((i / DEFAULT_BACKGROUNDS.length) * 55));
             const bgImg = await loadImageUrl(mockup.src);
             const resultUrl = await composeOverlayOnBackground(bgImg, svgOverlayImg, mockup);
 
