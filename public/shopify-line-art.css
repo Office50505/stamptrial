@@ -151,18 +151,7 @@
       transition: width 0.15s linear;
     }
 .line-art-customizer-root .btn-secondary.upload-picture-btn.is-loading::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      background: linear-gradient(
-        100deg,
-        rgba(13, 71, 161, 0) 30%,
-        rgba(13, 71, 161, 0.28) 45%,
-        rgba(13, 71, 161, 0) 60%
-      );
-      background-size: 220% 100%;
-      animation: uploadButtonSheen 2.2s linear infinite;
+      content: none;
     }
 .line-art-customizer-root .btn-secondary.upload-picture-btn .upload-picture-label {
       position: relative;
@@ -179,6 +168,10 @@
       border-color: #2569d1;
       color: #ffffff;
       cursor: wait;
+      opacity: 1;
+    }
+.line-art-customizer-root .btn-secondary.upload-picture-btn:disabled {
+      opacity: 1;
     }
 .line-art-customizer-root .upload-loader-content {
       position: relative;
@@ -231,10 +224,6 @@
       border-radius: 50%;
       vertical-align: -2px;
       animation: spin 0.75s linear infinite;
-    }
-@keyframes uploadButtonSheen {
-      0% { background-position: 140% 0; }
-      100% { background-position: -60% 0; }
     }
 @keyframes uploadButtonRoll {
       0% { opacity: 0; transform: translateY(60%); }
