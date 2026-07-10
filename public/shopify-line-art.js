@@ -910,9 +910,37 @@
       pickButton.classList.toggle("hidden", !isVisible);
     }
 
+    function updateFullscreenStripLayout(viewer) {
+      const shell = viewer && viewer.querySelector(".fullscreen-image-shell");
+      const image = viewer && viewer.querySelector(".fullscreen-image");
+      const thumbnails = viewer && viewer.querySelector(".fullscreen-thumbnails");
+      if (!shell || !image || !thumbnails || thumbnails.classList.contains("hidden")) return;
+
+      const viewport = window.visualViewport || window;
+      const viewportWidth = Math.floor(viewport.width || window.innerWidth || 0);
+      const shellWidth = Math.floor(shell.getBoundingClientRect().width || viewportWidth);
+      const imageWidth = Math.floor(image.getBoundingClientRect().width || 0);
+      const maxStripWidth = Math.max(280, Math.min(shellWidth, viewportWidth - 32, 700));
+      const smallImageMinimum = viewportWidth <= 600 ? 340 : 520;
+      const comfortableMinimum = viewportWidth <= 600 ? 300 : 420;
+      const targetWidth = imageWidth > 0 && imageWidth < comfortableMinimum
+        ? smallImageMinimum
+        : Math.max(comfortableMinimum, imageWidth);
+      const stripWidth = Math.max(280, Math.min(maxStripWidth, targetWidth));
+
+      shell.style.setProperty("--fullscreen-strip-width", `${stripWidth}px`);
+    }
+
+    function scheduleFullscreenStripLayout(viewer) {
+      if (!viewer) return;
+      requestAnimationFrame(() => updateFullscreenStripLayout(viewer));
+      window.setTimeout(() => updateFullscreenStripLayout(viewer), 120);
+    }
+
     function setFullscreenPreview(viewer, src, caption, activeIndex = -1, { showPick } = {}) {
       const image = viewer.querySelector(".fullscreen-image");
       const captionEl = viewer.querySelector(".fullscreen-caption");
+      image.onload = () => scheduleFullscreenStripLayout(viewer);
       image.src = src;
       image.alt = caption;
       captionEl.textContent = caption;
@@ -925,6 +953,7 @@
         dot.classList.toggle("active", Number(dot.dataset.index) === activeIndex);
       });
       setFullscreenPickVisible(viewer, typeof showPick === "boolean" ? showPick : Boolean(viewer._lineArtPickStyle));
+      scheduleFullscreenStripLayout(viewer);
     }
 
     function moveFullscreenVariant(viewer, delta) {
@@ -998,9 +1027,12 @@
       setFullscreenPreview(viewer, src, caption, activeIndex);
       viewer.classList.add("active");
       document.body.classList.add("line-art-fullscreen-open");
+      scheduleFullscreenStripLayout(viewer);
 
       if (viewer.requestFullscreen && !document.fullscreenElement) {
-        viewer.requestFullscreen().catch(() => {});
+        viewer.requestFullscreen()
+          .then(() => scheduleFullscreenStripLayout(viewer))
+          .catch(() => {});
       }
     }
 
@@ -1017,6 +1049,16 @@
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeFullscreenImage();
+    });
+
+    window.addEventListener("resize", () => {
+      const viewer = document.getElementById("line-art-fullscreen-viewer");
+      if (viewer && viewer.classList.contains("active")) scheduleFullscreenStripLayout(viewer);
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      const viewer = document.getElementById("line-art-fullscreen-viewer");
+      if (viewer && viewer.classList.contains("active")) scheduleFullscreenStripLayout(viewer);
     });
 
     function hideAdvancedTextControls() {

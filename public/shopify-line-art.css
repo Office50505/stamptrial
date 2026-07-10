@@ -856,6 +856,7 @@ body.line-art-fullscreen-open {
 .fullscreen-image-shell {
       width: min(1100px, 100%);
       height: 100%;
+      --fullscreen-strip-width: min(560px, 100%);
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto auto auto auto;
       gap: 12px;
@@ -901,7 +902,7 @@ body.line-art-fullscreen-open {
       transform: scale(1.12);
     }
 .fullscreen-thumbnails {
-      width: min(520px, 100%);
+      width: min(var(--fullscreen-strip-width, 560px), 100%);
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
@@ -959,22 +960,22 @@ body.line-art-fullscreen-open {
 .fullscreen-pick-btn {
       min-height: 42px;
       padding: 0 18px;
-      border: 1px solid #2f7dee;
+      border: 1px solid #dc2626;
       border-radius: 8px;
-      background: #2f7dee;
+      background: #dc2626;
       color: #ffffff;
       font: inherit;
       font-size: 14px;
       font-weight: 750;
       cursor: pointer;
-      box-shadow: 0 10px 26px rgba(47, 125, 238, 0.28);
+      box-shadow: 0 10px 26px rgba(220, 38, 38, 0.32);
     }
 .fullscreen-pick-btn.hidden {
       display: none;
     }
 .fullscreen-pick-btn:hover {
-      background: #2569d1;
-      border-color: #2569d1;
+      background: #b91c1c;
+      border-color: #b91c1c;
     }
 .fullscreen-close-btn {
       position: fixed;
@@ -1116,7 +1117,7 @@ body.line-art-fullscreen-open {
 .line-art-customizer-root .preview-card img { max-height: 160px; }
 .line-art-customizer-root .crop-canvas { width: 100%; }
 .fullscreen-image-shell { gap: 10px; }
-.fullscreen-thumbnails { width: min(360px, 100%); gap: 8px; }
+.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); gap: 8px; }
 .fullscreen-dots { gap: 7px; }
 .fullscreen-dot { width: 8px; height: 8px; }
 .fullscreen-thumb { padding: 4px; border-radius: 7px; }
