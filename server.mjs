@@ -450,6 +450,7 @@ app.post("/api/generate-line-art", async (req, res) => {
 app.post("/api/save-design", async (req, res) => {
   try {
     const {
+      designId: requestedDesignId,
       originalImageDataUrl,
       chosenVariantDataUrl,
       finalDesignDataUrl,
@@ -461,15 +462,18 @@ app.post("/api/save-design", async (req, res) => {
       return;
     }
 
-    const designId = `des_${crypto.randomUUID()}`;
+    const designId = /^des_[a-f0-9-]{36}$/i.test(String(requestedDesignId || ""))
+      ? String(requestedDesignId)
+      : `des_${crypto.randomUUID()}`;
     const originalExt = extensionFromMime(parseDataUrl(originalImageDataUrl).mimeType);
     const variantExt = extensionFromMime(parseDataUrl(chosenVariantDataUrl).mimeType);
+    const assetKey = crypto.randomUUID();
 
     const [originalImageUrl, chosenVariantUrl, finalDesignUrl] = await Promise.all([
-      uploadToBunny(`designs/${designId}/original.${originalExt}`, originalImageDataUrl),
-      uploadToBunny(`designs/${designId}/chosen-variant.${variantExt}`, chosenVariantDataUrl),
+      uploadToBunny(`designs/${designId}/original-${assetKey}.${originalExt}`, originalImageDataUrl),
+      uploadToBunny(`designs/${designId}/chosen-variant-${assetKey}.${variantExt}`, chosenVariantDataUrl),
       finalDesignDataUrl
-        ? uploadToBunny(`designs/${designId}/final-design.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
+        ? uploadToBunny(`designs/${designId}/final-design-${assetKey}.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
         : Promise.resolve(null)
     ]);
 
@@ -481,10 +485,17 @@ app.post("/api/save-design", async (req, res) => {
       chosenVariantUrl,
       finalDesignUrl,
       settings,
-      createdAt: new Date()
+      updatedAt: new Date()
     };
 
-    await db.collection("designs").insertOne(design);
+    await db.collection("designs").updateOne(
+      { designId },
+      {
+        $set: design,
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { upsert: true }
+    );
     res.json({ designId, originalImageUrl, chosenVariantUrl, finalDesignUrl });
   } catch (error) {
     console.error(error);

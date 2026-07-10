@@ -26,6 +26,7 @@
     let isSavingCartDesign = false;
     let isPreparingMockups = false;
     let cartDesignSavePromise = null;
+    let selectedDesignSavePromise = null;
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
     let uploadStatusMessageTimer = null;
@@ -34,6 +35,7 @@
     let cartDesignRevision = 0;
     let lastSavedCartDesignRevision = -1;
     let cartDesignAutoSaveTimer = null;
+    let selectedVariantIndex = -1;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
@@ -223,7 +225,7 @@
       cartDesignAutoSaveTimer = null;
     }
 
-    function scheduleCartDesignAutoSave(delay = 900) {
+    function scheduleCartDesignAutoSave(delay = 450) {
       clearCartDesignAutoSave();
       if (!sourceImageDataUrl || !selectedVariant || isGeneratingLineArt) return;
 
@@ -244,8 +246,8 @@
       return svgToImage(svgElement).then((img) => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = 1000;
-        canvas.height = 1000;
+        canvas.width = 760;
+        canvas.height = 760;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL("image/png");
@@ -263,6 +265,7 @@
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          designId: savedDesignId,
           originalImageDataUrl: sourceImageDataUrl,
           chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
           finalDesignDataUrl,
@@ -293,6 +296,7 @@
 
     async function saveFinalDesignForCart({ silent = false } = {}) {
       if (!sourceImageDataUrl || !selectedVariant) return false;
+      if (!savedDesignId && selectedDesignSavePromise) await selectedDesignSavePromise;
       if (finalDesignImageUrl && lastSavedCartDesignRevision === cartDesignRevision) return true;
       if (cartDesignSavePromise) return cartDesignSavePromise;
 
@@ -365,12 +369,20 @@
           }
 
           syncCartProperties();
-          if (finalDesignImageUrl && lastSavedCartDesignRevision === cartDesignRevision) return;
+          if (savedDesignId) {
+            if (!finalDesignImageUrl || lastSavedCartDesignRevision !== cartDesignRevision) {
+              scheduleCartDesignAutoSave(0);
+            }
+            return;
+          }
 
           event.preventDefault();
           event.stopPropagation();
           setCartSubmitLoading(form, true, "Adding to cart...");
-          const saved = await saveFinalDesignForCart();
+          if (!selectedDesignSavePromise) {
+            saveSelectedDesign(selectedVariantIndex >= 0 ? selectedVariantIndex : 0);
+          }
+          const saved = await selectedDesignSavePromise;
 
           if (!saved) {
             setCartSubmitLoading(form, false);
@@ -378,6 +390,8 @@
             return;
           }
 
+          syncCartProperties();
+          scheduleCartDesignAutoSave(0);
           form.dataset.lineArtSubmitting = "true";
           if (typeof form.requestSubmit === "function") {
             form.requestSubmit();
@@ -524,8 +538,10 @@
       savedDesignId = "";
       finalDesignImageUrl = "";
       selectedVariant = null;
+      selectedVariantIndex = -1;
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];
+      selectedDesignSavePromise = null;
       document.getElementById("variants-container").innerHTML = "";
       syncCartProperties();
       document.getElementById("preview-filename").textContent = file.name;
@@ -1568,6 +1584,7 @@
     }
 
     function selectVariant(index) {
+      selectedVariantIndex = index;
       selectedVariant = generatedLineArtVariants[index];
       saveSelectedDesign(index);
 
@@ -1590,9 +1607,10 @@
     }
 
     async function saveSelectedDesign(index) {
-      if (!sourceImageDataUrl || !selectedVariant) return;
+      if (!sourceImageDataUrl || !selectedVariant) return false;
+      if (selectedDesignSavePromise) return selectedDesignSavePromise;
 
-      try {
+      selectedDesignSavePromise = (async () => {
         const variantCanvas = makeTransparentLineCanvas(selectedVariant, "black");
         const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
           method: "POST",
@@ -1600,6 +1618,7 @@
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
+            designId: savedDesignId,
             originalImageDataUrl: sourceImageDataUrl,
             chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
             settings: {
@@ -1619,12 +1638,19 @@
           throw new Error(data.error || "Design save failed.");
         }
 
-        if (!finalDesignImageUrl) {
-          savedDesignId = data.designId || "";
-          syncCartProperties();
-        }
+        savedDesignId = data.designId || savedDesignId || "";
+        if (!finalDesignImageUrl) finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
+        syncCartProperties();
+        return Boolean(savedDesignId);
+      })();
+
+      try {
+        return await selectedDesignSavePromise;
       } catch (err) {
         console.warn("Design save skipped:", err);
+        return false;
+      } finally {
+        selectedDesignSavePromise = null;
       }
     }
 
@@ -1828,6 +1854,8 @@
       sourceImage = null;
       sourceImageDataUrl = "";
       selectedVariant = null;
+      selectedVariantIndex = -1;
+      selectedDesignSavePromise = null;
       clearCartDesignAutoSave();
       cartDesignRevision++;
       lastSavedCartDesignRevision = -1;
