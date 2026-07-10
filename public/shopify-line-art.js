@@ -16,6 +16,7 @@
     let loadingProgressTimer = null;
     let loadingProgressValue = 0;
     let generatedLineArtVariants = []; // Stores generated line art canvases
+    let generatedVariantPreviews = [];
     let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
     let currentInkColor = "black";
     let selectedSize = 'xxl'; // fixed default size
@@ -524,6 +525,7 @@
       finalDesignImageUrl = "";
       selectedVariant = null;
       generatedLineArtVariants = [];
+      generatedVariantPreviews = [];
       document.getElementById("variants-container").innerHTML = "";
       syncCartProperties();
       document.getElementById("preview-filename").textContent = file.name;
@@ -822,6 +824,7 @@
         <div class="fullscreen-image-shell">
           <img class="fullscreen-image" alt="">
           <div class="fullscreen-caption"></div>
+          <div class="fullscreen-thumbnails" aria-label="Generated styles"></div>
         </div>
       `;
 
@@ -835,15 +838,45 @@
       return viewer;
     }
 
-    function openFullscreenImage(src, caption = "Preview") {
-      if (Date.now() - lastSwipeNavigationAt < 600) return;
-      if (!src) return;
-      const viewer = ensureFullscreenViewer();
+    function setFullscreenPreview(viewer, src, caption, activeIndex = -1) {
       const image = viewer.querySelector(".fullscreen-image");
       const captionEl = viewer.querySelector(".fullscreen-caption");
       image.src = src;
       image.alt = caption;
       captionEl.textContent = caption;
+
+      viewer.querySelectorAll(".fullscreen-thumb").forEach((thumb) => {
+        thumb.classList.toggle("active", Number(thumb.dataset.index) === activeIndex);
+      });
+    }
+
+    function openFullscreenImage(src, caption = "Preview", options = {}) {
+      if (Date.now() - lastSwipeNavigationAt < 600) return;
+      if (!src) return;
+      const viewer = ensureFullscreenViewer();
+      const thumbnails = viewer.querySelector(".fullscreen-thumbnails");
+      const gallery = Array.isArray(options.gallery) ? options.gallery.filter((item) => item && item.src) : [];
+      const activeIndex = Number.isInteger(options.activeIndex) ? options.activeIndex : gallery.findIndex((item) => item.src === src);
+
+      if (thumbnails) {
+        thumbnails.innerHTML = "";
+        thumbnails.classList.toggle("hidden", gallery.length <= 1);
+        gallery.forEach((item, index) => {
+          const button = document.createElement("button");
+          button.className = "fullscreen-thumb";
+          button.type = "button";
+          button.dataset.index = String(index);
+          button.setAttribute("aria-label", `View ${item.caption || `Style ${index + 1}`}`);
+          button.innerHTML = `<img src="${item.src}" alt="">`;
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index);
+          });
+          thumbnails.appendChild(button);
+        });
+      }
+
+      setFullscreenPreview(viewer, src, caption, activeIndex);
       viewer.classList.add("active");
       document.body.classList.add("line-art-fullscreen-open");
 
@@ -1133,13 +1166,13 @@
 
     function getProcessingImageDataUrl() {
       const canvas = document.createElement("canvas");
-      const processingSize = 1536;
+      const processingSize = 1280;
       if (sourceInputMode === "crop") {
         drawCropToCanvas(canvas, processingSize);
       } else {
         drawWholeImageToCanvas(canvas, processingSize);
       }
-      return canvas.toDataURL("image/png");
+      return canvas.toDataURL("image/jpeg", 0.86);
     }
 
     function updateProgressUI(scope, progress, text) {
@@ -1374,7 +1407,7 @@
         setGenerationLoading(true, 70);
         await renderGeneratedVariants(imageUrls);
         setGenerationLoading(true, 100);
-        await sleep(Math.max(250, 700 - (Date.now() - loadingStartedAt)));
+        await sleep(Math.max(100, 250 - (Date.now() - loadingStartedAt)));
       } catch (err) {
         console.warn(err);
         alert("Could not generate line art variants. Please try another image.");
@@ -1417,17 +1450,28 @@
     async function renderGeneratedVariants(urls, variantNameOverrides, processingProfiles) {
       const container = document.getElementById("variants-container");
       container.innerHTML = "";
+      generatedVariantPreviews = [];
 
       const variantNames = variantNameOverrides || ["Style 1", "Style 2", "Style 3", "Style 4"];
+      const loadedImages = await Promise.all(urls.map((url, index) =>
+        loadImageUrl(url).then((img) => {
+          setGenerationLoading(true, 70 + Math.round(((index + 1) / urls.length) * 12));
+          return img;
+        })
+      ));
 
-      for (let index = 0; index < urls.length; index++) {
-        setGenerationLoading(true, 70 + Math.round((index / urls.length) * 24));
-        const img = await loadImageUrl(urls[index]);
+      for (let index = 0; index < loadedImages.length; index++) {
+        setGenerationLoading(true, 82 + Math.round((index / loadedImages.length) * 12));
+        const img = loadedImages[index];
         const lineArt = cleanLineArt(img, processingProfiles && processingProfiles[index]);
         generatedLineArtVariants[index] = lineArt;
 
         const displayCanvas = makeTransparentLineCanvas(lineArt, "black");
         const displayUrl = displayCanvas.toDataURL();
+        generatedVariantPreviews[index] = {
+          src: displayUrl,
+          caption: variantNames[index] || `Style ${index + 1}`
+        };
 
         const card = document.createElement("div");
         card.className = "variant-card";
@@ -1440,13 +1484,16 @@
           <div class="variant-preview-container" role="button" tabindex="0" aria-label="Open ${variantNames[index] || `Variant ${index + 1}`} fullscreen">
             <img src="${displayUrl}" alt="${variantNames[index] || `Variant ${index + 1}`}">
           </div>
-          <button class="variant-select-btn">Choose Variant</button>
+          <button class="variant-select-btn">Pick your style</button>
         `;
 
         const preview = card.querySelector(".variant-preview-container");
         const openPreview = (event) => {
           event.stopPropagation();
-          openFullscreenImage(displayUrl, variantNames[index] || `Variant ${index + 1}`);
+          openFullscreenImage(displayUrl, variantNames[index] || `Style ${index + 1}`, {
+            gallery: generatedVariantPreviews,
+            activeIndex: index
+          });
         };
         preview.addEventListener("click", openPreview);
         preview.addEventListener("keydown", (event) => {
@@ -1729,6 +1776,7 @@
       savedDesignId = "";
       finalDesignImageUrl = "";
       generatedLineArtVariants = [];
+      generatedVariantPreviews = [];
       document.getElementById("btn-process-image").setAttribute("disabled", "true");
       document.getElementById("upload-preview-card").classList.add("hidden");
       document.getElementById("upload-status-text").textContent = "Drag & drop photo here";
