@@ -36,7 +36,11 @@
     let lastSavedCartDesignRevision = -1;
     let cartDesignAutoSaveTimer = null;
     let selectedVariantIndex = -1;
+    let currentGenerationCacheKey = "";
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
+    const GENERATION_SESSION_CACHE_PREFIX = "lineArtGenerationCache:";
+    const GENERATION_LAST_SESSION_CACHE_KEY = "lineArtGenerationCache:last";
+    const GENERATION_SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
     const GENERATION_STATUS_MESSAGES = [
@@ -558,6 +562,7 @@
       finalDesignImageUrl = "";
       selectedVariant = null;
       selectedVariantIndex = -1;
+      currentGenerationCacheKey = "";
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];
       selectedDesignSavePromise = null;
@@ -1495,6 +1500,22 @@
 
       try {
         const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
+        const sessionCacheKey = await getGenerationSessionCacheKey(sourceForProcessing);
+        currentGenerationCacheKey = sessionCacheKey;
+        const cachedGeneration = getGenerationSessionCache(sessionCacheKey);
+        if (cachedGeneration) {
+          setGenerationLoading(true, 68);
+          await renderGeneratedVariants(cachedGeneration.imageUrls);
+          setGenerationSessionCache(sessionCacheKey, {
+            imageUrls: cachedGeneration.imageUrls,
+            sourceImageDataUrl: sourceForProcessing,
+            sourceFileName
+          });
+          setGenerationLoading(true, 100);
+          await sleep(Math.max(100, 250 - (Date.now() - loadingStartedAt)));
+          return;
+        }
+
         setGenerationLoading(true, 18);
 
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
@@ -1517,6 +1538,12 @@
         if (!imageUrls.length) {
           throw new Error("No generated images were returned.");
         }
+
+        setGenerationSessionCache(sessionCacheKey, {
+          imageUrls,
+          sourceImageDataUrl: sourceForProcessing,
+          sourceFileName
+        });
 
         setGenerationLoading(true, 70);
         await renderGeneratedVariants(imageUrls);
@@ -1542,6 +1569,105 @@
         reader.onload = () => resolve(reader.result);
         reader.onerror = () => reject(new Error("Could not prepare the selected image."));
         reader.readAsDataURL(file);
+      });
+    }
+
+    async function getGenerationSessionCacheKey(imageDataUrl) {
+      const text = String(imageDataUrl || "");
+      if (window.crypto?.subtle && window.TextEncoder) {
+        const bytes = new TextEncoder().encode(text);
+        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+      }
+
+      let hash = 5381;
+      for (let index = 0; index < text.length; index++) {
+        hash = ((hash << 5) + hash) ^ text.charCodeAt(index);
+      }
+      return `fallback-${hash >>> 0}-${text.length}`;
+    }
+
+    function getGenerationSessionCache(cacheKey) {
+      if (!cacheKey) return null;
+      try {
+        const raw = sessionStorage.getItem(`${GENERATION_SESSION_CACHE_PREFIX}${cacheKey}`);
+        if (!raw) return null;
+        const cached = JSON.parse(raw);
+        if (!cached || !Array.isArray(cached.imageUrls) || !cached.imageUrls.length) return null;
+        if (Date.now() - Number(cached.savedAt || 0) > GENERATION_SESSION_CACHE_TTL_MS) {
+          sessionStorage.removeItem(`${GENERATION_SESSION_CACHE_PREFIX}${cacheKey}`);
+          return null;
+        }
+        return cached;
+      } catch {
+        return null;
+      }
+    }
+
+    function setGenerationSessionCache(cacheKey, payload) {
+      if (!cacheKey || !payload || !Array.isArray(payload.imageUrls) || !payload.imageUrls.length) return;
+      try {
+        const cached = {
+          cacheKey,
+          imageUrls: payload.imageUrls.slice(0, 4),
+          sourceImageDataUrl: payload.sourceImageDataUrl || "",
+          sourceFileName: payload.sourceFileName || sourceFileName || "uploaded-image",
+          savedAt: Date.now()
+        };
+        sessionStorage.setItem(`${GENERATION_SESSION_CACHE_PREFIX}${cacheKey}`, JSON.stringify(cached));
+        sessionStorage.setItem(GENERATION_LAST_SESSION_CACHE_KEY, cacheKey);
+      } catch (error) {
+        console.warn("Generation session cache skipped:", error);
+      }
+    }
+
+    async function restoreLastGenerationSession() {
+      let cacheKey = "";
+      try {
+        cacheKey = sessionStorage.getItem(GENERATION_LAST_SESSION_CACHE_KEY) || "";
+      } catch {
+        return false;
+      }
+
+      const cached = getGenerationSessionCache(cacheKey);
+      if (!cached || !cached.sourceImageDataUrl) return false;
+
+      currentGenerationCacheKey = cacheKey;
+      sourceFileName = cached.sourceFileName || "uploaded-image";
+      sourceImageDataUrl = cached.sourceImageDataUrl;
+      sourceInputMode = "whole";
+      selectedVariant = null;
+      selectedVariantIndex = -1;
+      generatedLineArtVariants = [];
+      generatedVariantPreviews = [];
+
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = async () => {
+          sourceImage = img;
+          resetCropControls();
+          setSourceInputMode("whole");
+          document.getElementById("preview-filename").textContent = sourceFileName;
+          document.getElementById("upload-preview-card").classList.remove("hidden");
+          document.getElementById("btn-process-image").removeAttribute("disabled");
+          document.getElementById("upload-status-text").textContent = "Previous styles restored.";
+          try {
+            setGenerationLoading(true, 72);
+            await renderGeneratedVariants(cached.imageUrls);
+            setGenerationLoading(true, 100);
+            await sleep(120);
+            resolve(true);
+          } catch (error) {
+            console.warn("Could not restore generated styles:", error);
+            resolve(false);
+          } finally {
+            setGenerationLoading(false);
+          }
+        };
+        img.onerror = () => resolve(false);
+        img.src = cached.sourceImageDataUrl;
       });
     }
 
@@ -1897,6 +2023,7 @@
       selectedVariant = null;
       selectedVariantIndex = -1;
       selectedDesignSavePromise = null;
+      currentGenerationCacheKey = "";
       clearCartDesignAutoSave();
       cartDesignRevision++;
       lastSavedCartDesignRevision = -1;
@@ -2388,5 +2515,8 @@
     setTimeout(attachShopifyCartBridge, 800);
     setTimeout(attachShopifyCartBridge, 2000);
     try { setSize(selectedSize); } catch (e) { /* ignore if DOM not ready */ }
+    restoreLastGenerationSession().catch((error) => {
+      console.warn("Previous generation restore skipped:", error);
+    });
   
 })();

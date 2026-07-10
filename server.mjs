@@ -6,6 +6,8 @@ import crypto from "node:crypto";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const GENERATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GENERATION_CACHE_VERSION = "line-art-gpt-image-2-low-v1";
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -275,6 +277,67 @@ async function uploadToBunny(path, dataUrl) {
   return `${cdnBaseUrl}/${path}`;
 }
 
+async function uploadRemoteImageToBunny(path, imageUrl) {
+  const storageZone = requiredEnv("BUNNY_STORAGE_ZONE");
+  const storagePassword = requiredEnv("BUNNY_STORAGE_PASSWORD");
+  const storageEndpoint = (process.env.BUNNY_STORAGE_ENDPOINT || "https://storage.bunnycdn.com").replace(/\/$/, "");
+  const cdnBaseUrl = requiredEnv("BUNNY_CDN_BASE_URL").replace(/\/$/, "");
+
+  const imageResponse = await fetch(imageUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`Generated image download failed (${imageResponse.status}): ${imageResponse.statusText}`);
+  }
+
+  const mimeType = imageResponse.headers.get("content-type")?.split(";")[0] || "image/png";
+  const buffer = Buffer.from(await imageResponse.arrayBuffer());
+  const uploadUrl = `${storageEndpoint}/${storageZone}/${path}`;
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      AccessKey: storagePassword,
+      "Content-Type": mimeType
+    },
+    body: buffer
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Bunny generated image upload failed (${response.status}): ${body || response.statusText}`);
+  }
+
+  return `${cdnBaseUrl}/${path}`;
+}
+
+function getGenerationCacheKey({ buffer, mimeType }) {
+  return crypto
+    .createHash("sha256")
+    .update(GENERATION_CACHE_VERSION)
+    .update("\0")
+    .update(LINE_ART_PROMPT)
+    .update("\0")
+    .update(mimeType)
+    .update("\0")
+    .update(buffer)
+    .digest("hex");
+}
+
+async function persistGeneratedImageUrls(imageUrls, cacheKey) {
+  return Promise.all(imageUrls.map(async (url, index) => {
+    try {
+      const imageResponse = await fetch(url, { method: "HEAD" }).catch(() => null);
+      const mimeType = imageResponse?.headers?.get("content-type")?.split(";")[0] || "image/png";
+      const ext = extensionFromMime(mimeType);
+      return await uploadRemoteImageToBunny(
+        `generated-line-art/${cacheKey}/variant-${index + 1}-${crypto.randomUUID()}.${ext}`,
+        url
+      );
+    } catch (error) {
+      console.warn("Generated image persistence skipped", { url, error: error.message });
+      return url;
+    }
+  }));
+}
+
 async function requestLineArtProvider(sourceImageUrl) {
   const response = await fetch("https://fal.run/openai/gpt-image-2/edit", {
     method: "POST",
@@ -409,13 +472,36 @@ The final image should look like the uploaded reference was converted into a bol
 
 app.post("/api/generate-line-art", async (req, res) => {
   try {
-    const { imageDataUrl } = req.body || {};
+    const { imageDataUrl, forceRegenerate = false } = req.body || {};
     if (!imageDataUrl) {
       res.status(400).json({ error: "imageDataUrl is required" });
       return;
     }
 
-    const sourceExt = extensionFromMime(parseDataUrl(imageDataUrl).mimeType);
+    const parsedSource = parseDataUrl(imageDataUrl);
+    const generationCacheKey = getGenerationCacheKey(parsedSource);
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    const generationCache = db.collection("generation_cache");
+    const now = new Date();
+
+    if (!forceRegenerate) {
+      const cachedGeneration = await generationCache.findOne({
+        cacheKey: generationCacheKey,
+        expiresAt: { $gt: now },
+        imageUrls: { $type: "array", $ne: [] }
+      });
+
+      if (cachedGeneration) {
+        res.json({
+          imageUrls: cachedGeneration.imageUrls.slice(0, 4),
+          cached: true
+        });
+        return;
+      }
+    }
+
+    const sourceExt = extensionFromMime(parsedSource.mimeType);
     const sourceImageUrl = await uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
     let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
 
@@ -444,7 +530,24 @@ app.post("/api/generate-line-art", async (req, res) => {
       return;
     }
 
-    res.json({ imageUrls });
+    const persistentImageUrls = await persistGeneratedImageUrls(imageUrls, generationCacheKey);
+    await generationCache.updateOne(
+      { cacheKey: generationCacheKey },
+      {
+        $set: {
+          cacheKey: generationCacheKey,
+          cacheVersion: GENERATION_CACHE_VERSION,
+          imageUrls: persistentImageUrls.slice(0, 4),
+          sourceMimeType: parsedSource.mimeType,
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + GENERATION_CACHE_TTL_MS)
+        },
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { upsert: true }
+    );
+
+    res.json({ imageUrls: persistentImageUrls, cached: false });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not generate line art variants" });
