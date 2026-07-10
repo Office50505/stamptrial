@@ -211,6 +211,41 @@ function extensionFromMime(mimeType) {
   return "png";
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function addCacheBuster(url, key) {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}v=${encodeURIComponent(key)}`;
+}
+
+async function waitForPublicImageUrl(url, { attempts = 8, delayMs = 450 } = {}) {
+  let lastError = "";
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: "HEAD",
+        headers: {
+          "Cache-Control": "no-cache"
+        }
+      });
+
+      if (response.ok) return;
+      lastError = `${response.status} ${response.statusText}`.trim();
+    } catch (error) {
+      lastError = error.message || String(error);
+    }
+
+    if (attempt < attempts) {
+      await sleep(delayMs * attempt);
+    }
+  }
+
+  throw new Error(`Uploaded image URL is not publicly accessible yet: ${lastError || "unknown error"}`);
+}
+
 async function uploadToBunny(path, dataUrl) {
   const storageZone = requiredEnv("BUNNY_STORAGE_ZONE");
   const storagePassword = requiredEnv("BUNNY_STORAGE_PASSWORD");
@@ -234,6 +269,42 @@ async function uploadToBunny(path, dataUrl) {
   }
 
   return `${cdnBaseUrl}/${path}`;
+}
+
+async function requestLineArtProvider(sourceImageUrl) {
+  const response = await fetch("https://fal.run/openai/gpt-image-2/edit", {
+    method: "POST",
+    headers: {
+      Authorization: `Key ${requiredEnv("FAL_API_KEY")}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt: LINE_ART_PROMPT,
+      image_urls: [sourceImageUrl],
+      image_size: "auto",
+      quality: "low",
+      num_images: 4,
+      output_format: "png",
+      sync_mode: true
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
+function isProviderImageDownloadError(data) {
+  const details = Array.isArray(data && data.detail)
+    ? data.detail
+    : [data && data.detail, data && data.error, data && data.message].filter(Boolean);
+
+  return details.some((detail) => {
+    const text = typeof detail === "string"
+      ? detail
+      : [detail && detail.msg, detail && detail.message, detail && detail.type].filter(Boolean).join(" ");
+
+    return /file_download_error|download|not accessible|expired|image url/i.test(text);
+  });
 }
 
 app.get("/api/health", (_req, res) => {
@@ -342,25 +413,18 @@ app.post("/api/generate-line-art", async (req, res) => {
 
     const sourceExt = extensionFromMime(parseDataUrl(imageDataUrl).mimeType);
     const sourceImageUrl = await uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
+    let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
 
-    const response = await fetch("https://fal.run/openai/gpt-image-2/edit", {
-      method: "POST",
-      headers: {
-        Authorization: `Key ${requiredEnv("FAL_API_KEY")}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        prompt: LINE_ART_PROMPT,
-        image_urls: [sourceImageUrl],
-        image_size: "auto",
-        quality: "low",
-        num_images: 4,
-        output_format: "png",
-        sync_mode: true
-      })
-    });
+    await waitForPublicImageUrl(providerImageUrl);
 
-    const data = await response.json().catch(() => ({}));
+    let { response, data } = await requestLineArtProvider(providerImageUrl);
+    if (!response.ok && response.status === 422 && isProviderImageDownloadError(data)) {
+      await sleep(1200);
+      providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
+      await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
+      ({ response, data } = await requestLineArtProvider(providerImageUrl));
+    }
+
     if (!response.ok) {
       console.warn("Line art provider rejected request", {
         status: response.status,
