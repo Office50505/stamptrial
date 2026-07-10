@@ -233,7 +233,7 @@
       cartDesignAutoSaveTimer = null;
     }
 
-    function scheduleCartDesignAutoSave(delay = 450) {
+    function scheduleCartDesignAutoSave(delay = 250) {
       clearCartDesignAutoSave();
       if (!sourceImageDataUrl || !selectedVariant || isGeneratingLineArt) return;
 
@@ -254,8 +254,8 @@
       return svgToImage(svgElement).then((img) => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = 760;
-        canvas.height = 760;
+        canvas.width = 520;
+        canvas.height = 520;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL("image/png");
@@ -265,27 +265,32 @@
     async function uploadCurrentCartDesignSnapshot() {
       const revisionAtStart = cartDesignRevision;
       updateSvgLayout({ skipDirty: true });
-      const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
       const finalDesignDataUrl = await renderFinalDesignDataUrl();
+      const payload = {
+        designId: savedDesignId,
+        finalDesignDataUrl,
+        settings: {
+          sourceFileName,
+          selectedSize,
+          inkColor: currentInkColor,
+          aboveText: document.getElementById("above-text-input")?.value || "",
+          belowText: document.getElementById("below-text-input")?.value || "",
+          notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
+        }
+      };
+
+      if (!savedDesignId) {
+        const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
+        payload.originalImageDataUrl = sourceImageDataUrl;
+        payload.chosenVariantDataUrl = variantCanvas.toDataURL("image/png");
+      }
+
       const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          designId: savedDesignId,
-          originalImageDataUrl: sourceImageDataUrl,
-          chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
-          finalDesignDataUrl,
-          settings: {
-            sourceFileName,
-            selectedSize,
-            inkColor: currentInkColor,
-            aboveText: document.getElementById("above-text-input")?.value || "",
-            belowText: document.getElementById("below-text-input")?.value || "",
-            notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
-          }
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json().catch(() => ({}));

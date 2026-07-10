@@ -461,36 +461,58 @@ app.post("/api/save-design", async (req, res) => {
       settings = {}
     } = req.body || {};
 
-    if (!originalImageDataUrl || !chosenVariantDataUrl) {
-      res.status(400).json({ error: "originalImageDataUrl and chosenVariantDataUrl are required" });
+    const hasValidDesignId = /^des_[a-f0-9-]{36}$/i.test(String(requestedDesignId || ""));
+    const hasOriginalImage = Boolean(originalImageDataUrl);
+    const hasChosenVariant = Boolean(chosenVariantDataUrl);
+    const hasFinalDesign = Boolean(finalDesignDataUrl);
+
+    if (hasOriginalImage !== hasChosenVariant) {
+      res.status(400).json({ error: "originalImageDataUrl and chosenVariantDataUrl must be sent together" });
       return;
     }
 
-    const designId = /^des_[a-f0-9-]{36}$/i.test(String(requestedDesignId || ""))
-      ? String(requestedDesignId)
-      : `des_${crypto.randomUUID()}`;
-    const originalExt = extensionFromMime(parseDataUrl(originalImageDataUrl).mimeType);
-    const variantExt = extensionFromMime(parseDataUrl(chosenVariantDataUrl).mimeType);
+    if (!hasOriginalImage && (!hasValidDesignId || !hasFinalDesign)) {
+      res.status(400).json({ error: "originalImageDataUrl and chosenVariantDataUrl are required for new designs" });
+      return;
+    }
+
+    const designId = hasValidDesignId ? String(requestedDesignId) : `des_${crypto.randomUUID()}`;
     const assetKey = crypto.randomUUID();
 
-    const [originalImageUrl, chosenVariantUrl, finalDesignUrl] = await Promise.all([
-      uploadToBunny(`designs/${designId}/original-${assetKey}.${originalExt}`, originalImageDataUrl),
-      uploadToBunny(`designs/${designId}/chosen-variant-${assetKey}.${variantExt}`, chosenVariantDataUrl),
-      finalDesignDataUrl
-        ? uploadToBunny(`designs/${designId}/final-design-${assetKey}.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
-        : Promise.resolve(null)
-    ]);
+    const uploadJobs = [];
+    if (hasOriginalImage) {
+      const originalExt = extensionFromMime(parseDataUrl(originalImageDataUrl).mimeType);
+      const variantExt = extensionFromMime(parseDataUrl(chosenVariantDataUrl).mimeType);
+      uploadJobs.push([
+        "originalImageUrl",
+        uploadToBunny(`designs/${designId}/original-${assetKey}.${originalExt}`, originalImageDataUrl)
+      ]);
+      uploadJobs.push([
+        "chosenVariantUrl",
+        uploadToBunny(`designs/${designId}/chosen-variant-${assetKey}.${variantExt}`, chosenVariantDataUrl)
+      ]);
+    }
+    if (hasFinalDesign) {
+      uploadJobs.push([
+        "finalDesignUrl",
+        uploadToBunny(`designs/${designId}/final-design-${assetKey}.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
+      ]);
+    }
+
+    const uploadedEntries = await Promise.all(uploadJobs.map(async ([key, promise]) => [key, await promise]));
+    const uploadedUrls = Object.fromEntries(uploadedEntries);
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const design = {
       designId,
-      originalImageUrl,
-      chosenVariantUrl,
-      finalDesignUrl,
       settings,
       updatedAt: new Date()
     };
+
+    if (uploadedUrls.originalImageUrl) design.originalImageUrl = uploadedUrls.originalImageUrl;
+    if (uploadedUrls.chosenVariantUrl) design.chosenVariantUrl = uploadedUrls.chosenVariantUrl;
+    if (uploadedUrls.finalDesignUrl) design.finalDesignUrl = uploadedUrls.finalDesignUrl;
 
     await db.collection("designs").updateOne(
       { designId },
@@ -500,7 +522,7 @@ app.post("/api/save-design", async (req, res) => {
       },
       { upsert: true }
     );
-    res.json({ designId, originalImageUrl, chosenVariantUrl, finalDesignUrl });
+    res.json({ designId, ...uploadedUrls });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not save design" });
