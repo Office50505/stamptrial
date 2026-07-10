@@ -890,7 +890,7 @@ body.line-art-fullscreen-open {
       width: min(1100px, 100%);
       height: 100%;
       display: grid;
-      grid-template-rows: minmax(0, 1fr) auto auto;
+      grid-template-rows: minmax(0, 1fr) auto auto auto auto;
       gap: 12px;
       justify-items: center;
       align-items: center;
@@ -908,6 +908,30 @@ body.line-art-fullscreen-open {
       font-size: 14px;
       font-weight: 650;
       text-align: center;
+    }
+.fullscreen-dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+.fullscreen-dots.hidden {
+      display: none;
+    }
+.fullscreen-dot {
+      width: 9px;
+      height: 9px;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.34);
+      cursor: pointer;
+      transition: background 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+    }
+.fullscreen-dot.active {
+      background: #ffffff;
+      transform: scale(1.12);
     }
 .fullscreen-thumbnails {
       width: min(520px, 100%);
@@ -927,7 +951,8 @@ body.line-art-fullscreen-open {
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.12);
       cursor: pointer;
-      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+      position: relative;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
     }
 .fullscreen-thumb:hover {
       border-color: #ffffff;
@@ -935,10 +960,26 @@ body.line-art-fullscreen-open {
       transform: translateY(-1px);
     }
 .fullscreen-thumb.active {
-      border-color: #ffffff;
+      border-color: #2f7dee;
       background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.32), 0 8px 22px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 0 0 3px rgba(47, 125, 238, 0.95), 0 8px 22px rgba(0, 0, 0, 0.28);
       transform: translateY(-2px) scale(1.04);
+    }
+.fullscreen-thumb.active::after {
+      content: "✓";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #2f7dee;
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 900;
+      box-shadow: 0 3px 10px rgba(47, 125, 238, 0.32);
     }
 .fullscreen-thumb img {
       width: 100%;
@@ -951,21 +992,22 @@ body.line-art-fullscreen-open {
 .fullscreen-pick-btn {
       min-height: 42px;
       padding: 0 18px;
-      border: 1px solid #ffffff;
+      border: 1px solid #2f7dee;
       border-radius: 8px;
-      background: #ffffff;
-      color: #111827;
+      background: #2f7dee;
+      color: #ffffff;
       font: inherit;
       font-size: 14px;
       font-weight: 750;
       cursor: pointer;
-      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+      box-shadow: 0 10px 26px rgba(47, 125, 238, 0.28);
     }
 .fullscreen-pick-btn.hidden {
       display: none;
     }
 .fullscreen-pick-btn:hover {
-      background: #f3f4f6;
+      background: #2569d1;
+      border-color: #2569d1;
     }
 .fullscreen-close-btn {
       position: fixed;
@@ -1116,7 +1158,10 @@ body.line-art-fullscreen-open {
 .fullscreen-nav-prev { left: 8px; }
 .fullscreen-nav-next { right: 8px; }
 .fullscreen-thumbnails { width: min(360px, 100%); gap: 8px; }
+.fullscreen-dots { gap: 7px; }
+.fullscreen-dot { width: 8px; height: 8px; }
 .fullscreen-thumb { padding: 4px; border-radius: 7px; }
+.fullscreen-thumb.active::after { top: 5px; right: 5px; width: 20px; height: 20px; font-size: 12px; }
 .fullscreen-pick-btn { width: min(240px, 100%); }
     }
 .line-art-customizer-root .alert-banner {

@@ -842,6 +842,7 @@
         <div class="fullscreen-image-shell">
           <img class="fullscreen-image" alt="">
           <div class="fullscreen-caption"></div>
+          <div class="fullscreen-dots hidden" aria-label="Style position"></div>
           <div class="fullscreen-thumbnails" aria-label="Generated styles"></div>
           <button class="fullscreen-pick-btn hidden" type="button">Pick this style</button>
         </div>
@@ -907,6 +908,9 @@
       viewer.querySelectorAll(".fullscreen-thumb").forEach((thumb) => {
         thumb.classList.toggle("active", Number(thumb.dataset.index) === activeIndex);
       });
+      viewer.querySelectorAll(".fullscreen-dot").forEach((dot) => {
+        dot.classList.toggle("active", Number(dot.dataset.index) === activeIndex);
+      });
       setFullscreenPickVisible(viewer, typeof showPick === "boolean" ? showPick : Boolean(viewer._lineArtPickStyle));
     }
 
@@ -925,6 +929,7 @@
       if (!src) return;
       const viewer = ensureFullscreenViewer();
       const thumbnails = viewer.querySelector(".fullscreen-thumbnails");
+      const dots = viewer.querySelector(".fullscreen-dots");
       const pickButton = viewer.querySelector(".fullscreen-pick-btn");
       const navButtons = viewer.querySelectorAll(".fullscreen-nav");
       const gallery = Array.isArray(options.gallery) ? options.gallery.filter((item) => item && item.src) : [];
@@ -959,6 +964,23 @@
             setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index);
           });
           thumbnails.appendChild(button);
+        });
+      }
+
+      if (dots) {
+        dots.innerHTML = "";
+        dots.classList.toggle("hidden", gallery.length <= 1);
+        gallery.forEach((item, index) => {
+          const button = document.createElement("button");
+          button.className = "fullscreen-dot";
+          button.type = "button";
+          button.dataset.index = String(index);
+          button.setAttribute("aria-label", `View ${item.caption || `Style ${index + 1}`}`);
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index);
+          });
+          dots.appendChild(button);
         });
       }
 
