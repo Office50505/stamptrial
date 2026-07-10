@@ -119,7 +119,11 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
     const lineItems = Array.isArray(order.line_items) ? order.line_items : [];
     const designIds = Array.from(new Set(
       lineItems
-        .map((lineItem) => getLineItemProperty(lineItem, "Design ID"))
+        .map((lineItem) =>
+          getLineItemProperty(lineItem, "_Design ID") ||
+          getLineItemProperty(lineItem, "Design ID") ||
+          getLineItemProperty(lineItem, "Reference ID")
+        )
         .filter(Boolean)
     ));
 

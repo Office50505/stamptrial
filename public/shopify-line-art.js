@@ -165,12 +165,10 @@
 
     function ensureCartPropertyInputs() {
       const fields = [
-        "Design Preview",
-        "Design ID",
-        "Ink Color",
-        "Above Text",
-        "Below Text",
-        "Notes For Designer"
+        "_Design Preview",
+        "_Design ID",
+        "Reference ID",
+        "Stamp Color"
       ];
 
       getShopifyProductForms().forEach((form) => {
@@ -188,10 +186,15 @@
       });
     }
 
-    function setCartProperty(name, value) {
+    function setCartProperty(name, value, { keepWhenEmpty = false } = {}) {
       getShopifyProductForms().forEach((form) => {
         const inputName = `properties[${name}]`;
         let input = Array.from(form.elements).find((el) => el.name === inputName);
+        const normalizedValue = value || "";
+        if (!normalizedValue && !keepWhenEmpty) {
+          if (input) input.remove();
+          return;
+        }
         if (!input) {
           input = document.createElement("input");
           input.type = "hidden";
@@ -199,18 +202,23 @@
           input.dataset.lineArtProperty = name;
           form.appendChild(input);
         }
-        input.value = value || "";
+        input.value = normalizedValue;
       });
     }
 
     function syncCartProperties() {
       ensureCartPropertyInputs();
-      setCartProperty("Design Preview", finalDesignImageUrl);
-      setCartProperty("Design ID", savedDesignId);
-      setCartProperty("Ink Color", currentInkColor);
-      setCartProperty("Above Text", document.getElementById("above-text-input")?.value || "");
-      setCartProperty("Below Text", document.getElementById("below-text-input")?.value || "");
-      setCartProperty("Notes For Designer", document.getElementById("designer-notes-input")?.value || "");
+      setCartProperty("_Design Preview", finalDesignImageUrl);
+      setCartProperty("_Design ID", savedDesignId);
+      setCartProperty("Reference ID", savedDesignId);
+      setCartProperty("Stamp Color", currentInkColor);
+      setCartProperty("Top Text", document.getElementById("above-text-input")?.value?.trim() || "");
+      setCartProperty("Bottom Text", document.getElementById("below-text-input")?.value?.trim() || "");
+      setCartProperty("Design Notes", document.getElementById("designer-notes-input")?.value?.trim() || "");
+
+      ["Design Preview", "Design ID", "Ink Color", "Above Text", "Below Text", "Notes For Designer"].forEach((legacyField) => {
+        setCartProperty(legacyField, "");
+      });
     }
 
     function markCartDesignChanged({ scheduleAutoSave = true } = {}) {
