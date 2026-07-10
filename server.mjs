@@ -241,29 +241,29 @@ app.get("/api/health", (_req, res) => {
 });
 
 const LINE_ART_PROMPT = `Convert the uploaded reference image into bold black vector-style logo line art on a pure white background.
-The target result should feel like a clean emblem/icon conversion: sharp, angular black contours, crisp white negative space, and a polished manually traced vector look.
+The target result should feel like a clean emblem/icon conversion: crisp smooth black vector contours, clean white negative space, and a polished manually traced logo look.
 Use the uploaded image as the source of truth for the subject, pose, silhouette, proportions, and layout.
 STYLE TARGET
 
 Bold black outline art.
 Pure white background.
 High-contrast black and white only.
-Sharp, faceted vector-quality strokes.
-Thick confident contour lines similar to classic logo line art, built from crisp straight/angular segments rather than flowing curves.
+Sharp, clean vector-quality strokes.
+Thick confident contour lines similar to classic logo line art, built from smooth controlled vector curves and straight segments where appropriate.
 White-dominant result: black should appear as strokes/details, not as a filled black background.
-Sharp, geometric corners at every transition point — even where the source is curved, render it as a faceted/angular approximation (like a low-poly or laser-cut emblem) rather than a smooth curve.
-Crisp, hard corners wherever the source has corners — no softening or rounding.
+Smooth, crisp curves where the source is curved; sharp, hard corners only where the source actually has corners.
+Crisp, hard-edged strokes with no fuzzy, blurry, or feathered edges.
 Clean enclosed white negative spaces between black lines.
-Simple, readable, premium emblem-style result with a precise, cut-edge look.
+Simple, readable, premium emblem-style result with a precise, clean vector-logo look.
 
 TRANSFORMATION RULES
 
-Convert visible subject edges, important internal edges, and major shadows into clean black vector paths made of sharp angular segments.
+Convert visible subject edges, important internal edges, and major shadows into clean black vector paths with smooth contours and crisp hard edges.
 Keep essential filled black areas when they make features readable, such as eyes, eyebrows, lips, deep shadows, or dark graphic details.
 Keep the interior mostly white wherever the source has open or light areas.
 Use thick black strokes with hard, defined edges for borders and contours instead of filling large regions solid black.
 Remove photographic texture, gradients, skin tones, color, noise, soft lighting, and background clutter.
-If the uploaded source already contains a graphic/logo, preserve its geometry closely, sharpening any soft corners into precise angles.
+If the uploaded source already contains a graphic/logo, preserve its geometry closely and make the edges cleaner and more vector-crisp.
 If the uploaded source is a photo, simplify only enough to create a clean sharp-edged logo-style line-art version while keeping the likeness and main geometry.
 
 PRESERVE
@@ -274,10 +274,10 @@ Main silhouette.
 Proportions.
 Symmetry/asymmetry from the source.
 Important facial or product features.
-Hair, clothing, object, or ornament flow when visible (rendered with sharp faceted edges rather than soft flowing curves).
+Hair, clothing, object, or ornament flow when visible (rendered as clean smooth vector curves with crisp hard-edged strokes).
 Spacing between major elements.
 Internal negative space.
-Line direction and angular rhythm.
+Line direction and natural contour rhythm.
 Visual balance.
 
 STRICT IDENTITY LOCK (NON-NEGOTIABLE)
@@ -290,14 +290,14 @@ If uncertain whether a detail counts as "core," default to preserving it rather 
 
 SMALL MARK PRESERVATION (CRITICAL)
 
-If the uploaded source contains any trademark (™), registered (®), copyright (©) symbol, monogram, small text, or tiny secondary mark, it MUST be reproduced in the output in the same position, scale, and style-consistent sharp-edged line form.
+If the uploaded source contains any trademark (™), registered (®), copyright (©) symbol, monogram, small text, or tiny secondary mark, it MUST be reproduced in the output in the same position, scale, and style-consistent crisp vector line form.
 Do not drop, shrink into illegibility, or omit small marks/symbols just because they are tiny relative to the main subject.
 Treat every small mark exactly like a core element — its absence is a failed conversion, not an acceptable simplification.
 Before finalizing, scan the full source image edge-to-edge (including corners and periphery) for any symbol, initials, or mark, and confirm each one is present in the output.
 
 LINE QUALITY
 
-Sharp, angular, faceted vector edges — no smooth Bezier curves.
+Clean smooth vector contours with hard, crisp edges.
 Solid black strokes and fills only.
 No gray.
 No color.
@@ -311,7 +311,7 @@ No thin fragile lines.
 No low-detail cartoon look.
 No inverted look.
 No mostly black badge.
-No soft/rounded corners anywhere.
+No fuzzy, blurry, feathered, or low-resolution edges.
 
 STRICT NEGATIVE CONSTRAINTS
 
@@ -327,10 +327,10 @@ Do not omit any trademark, registered, copyright, or small secondary mark that i
 Do not copy any brand artwork unless the uploaded image itself is that artwork.
 Do not add backgrounds, frames, or decorative scenery.
 Do not change, remove, or reinterpret any key feature or core element of the original subject.
-Do not round or soften any corner or curve — every edge and transition should be crisp and angular.
+Do not blur, feather, or fuzz any edge; curves should be smooth and logo-clean, and true corners should remain crisp.
 
 TARGET RESULT
-The final image should look like the uploaded reference was converted into a bold black-and-white vector logo outline with sharp, faceted, geometric contours and selective solid black feature shapes on white, ready for printing or engraving — while preserving the exact identity, core elements, and any small marks (TM/®/©) of the original subject.`;
+The final image should look like the uploaded reference was converted into a bold black-and-white vector logo outline with crisp smooth contours, hard clean stroke edges, and selective solid black feature shapes on white, ready for printing or engraving — while preserving the exact identity, core elements, and any small marks (TM/®/©) of the original subject.`;
 
 app.post("/api/generate-line-art", async (req, res) => {
   try {

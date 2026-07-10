@@ -471,13 +471,8 @@
 .line-art-customizer-root .svg-artwork-container.size-xxl { max-width: 1040px; }
 .line-art-customizer-root /* Subtle grid backdrop for transparent preview */
     .checkerboard-bg {
-      background-image:
-        linear-gradient(45deg, #fafafa 25%, transparent 25%),
-        linear-gradient(-45deg, #fafafa 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #fafafa 75%),
-        linear-gradient(-45deg, transparent 75%, #fafafa 75%);
-      background-size: 20px 20px;
       background-color: #ffffff;
+      background-image: none;
     }
 .line-art-customizer-root /* Controls Panel */
     .controls-panel {

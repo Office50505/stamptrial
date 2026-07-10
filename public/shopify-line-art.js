@@ -37,12 +37,28 @@
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
     const GENERATION_STATUS_MESSAGES = [
-      "Analyzing your logo...",
-      "Tracing every detail...",
-      "Converting to crisp line art...",
-      "Refining the edges...",
-      "Sharpening your design...",
-      "Your preview is almost ready!"
+"Analyzing your logo...",
+"Tracing every detail...",
+"Converting to crisp line art...",
+"Refining the edges...",
+"Sharpening your design...",
+"Cleaning up the outlines...",
+"Balancing the contrast...",
+"Preparing your options...",
+"Mapping the silhouette...",
+"Isolating key contours...",
+"Simplifying the shapes...",
+"Removing the noise...",
+"Boosting the black levels...",
+"Smoothing stray pixels...",
+"Locking in proportions...",
+"Checking every small mark...",
+"Polishing the strokes...",
+"Aligning the negative space...",
+"Finalizing the vector paths...",
+"Rendering your emblem...",
+"Almost ready...",
+"Adding the finishing touches...",
     ];
     const GENERATION_STATUS_MESSAGE_MS = 3200;
 
@@ -1117,13 +1133,13 @@
 
     function getProcessingImageDataUrl() {
       const canvas = document.createElement("canvas");
-      const processingSize = 768;
+      const processingSize = 1536;
       if (sourceInputMode === "crop") {
         drawCropToCanvas(canvas, processingSize);
       } else {
         drawWholeImageToCanvas(canvas, processingSize);
       }
-      return canvas.toDataURL("image/jpeg", 0.86);
+      return canvas.toDataURL("image/png");
     }
 
     function updateProgressUI(scope, progress, text) {
