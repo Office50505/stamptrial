@@ -837,6 +837,8 @@
       viewer.className = "line-art-fullscreen-viewer";
       viewer.innerHTML = `
         <button class="fullscreen-close-btn" type="button" aria-label="Close preview">Close</button>
+        <button class="fullscreen-nav fullscreen-nav-prev hidden" type="button" aria-label="Previous style">‹</button>
+        <button class="fullscreen-nav fullscreen-nav-next hidden" type="button" aria-label="Next style">›</button>
         <div class="fullscreen-image-shell">
           <img class="fullscreen-image" alt="">
           <div class="fullscreen-caption"></div>
@@ -851,9 +853,18 @@
         }
       });
 
+      viewer.querySelector(".fullscreen-nav-prev")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        moveFullscreenVariant(viewer, -1);
+      });
+      viewer.querySelector(".fullscreen-nav-next")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        moveFullscreenVariant(viewer, 1);
+      });
+
       let swipeStart = null;
       viewer.addEventListener("touchstart", (event) => {
-        if (event.touches.length !== 1 || event.target.closest(".fullscreen-thumb, .fullscreen-pick-btn, .fullscreen-close-btn")) {
+        if (event.touches.length !== 1 || event.target.closest(".fullscreen-thumb, .fullscreen-pick-btn, .fullscreen-close-btn, .fullscreen-nav")) {
           swipeStart = null;
           return;
         }
@@ -915,10 +926,12 @@
       const viewer = ensureFullscreenViewer();
       const thumbnails = viewer.querySelector(".fullscreen-thumbnails");
       const pickButton = viewer.querySelector(".fullscreen-pick-btn");
+      const navButtons = viewer.querySelectorAll(".fullscreen-nav");
       const gallery = Array.isArray(options.gallery) ? options.gallery.filter((item) => item && item.src) : [];
       const activeIndex = Number.isInteger(options.activeIndex) ? options.activeIndex : gallery.findIndex((item) => item.src === src);
       viewer._lineArtGallery = gallery;
       viewer._lineArtPickStyle = typeof options.onPick === "function" ? options.onPick : null;
+      navButtons.forEach((button) => button.classList.toggle("hidden", gallery.length <= 1));
 
       if (pickButton) {
         pickButton.onclick = (event) => {
