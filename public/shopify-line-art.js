@@ -869,7 +869,7 @@
       pickButton.classList.toggle("hidden", !isVisible);
     }
 
-    function setFullscreenPreview(viewer, src, caption, activeIndex = -1, { showPick = false } = {}) {
+    function setFullscreenPreview(viewer, src, caption, activeIndex = -1, { showPick } = {}) {
       const image = viewer.querySelector(".fullscreen-image");
       const captionEl = viewer.querySelector(".fullscreen-caption");
       image.src = src;
@@ -880,7 +880,7 @@
       viewer.querySelectorAll(".fullscreen-thumb").forEach((thumb) => {
         thumb.classList.toggle("active", Number(thumb.dataset.index) === activeIndex);
       });
-      setFullscreenPickVisible(viewer, showPick);
+      setFullscreenPickVisible(viewer, typeof showPick === "boolean" ? showPick : Boolean(viewer._lineArtPickStyle));
     }
 
     function moveFullscreenVariant(viewer, delta) {
@@ -927,10 +927,7 @@
           button.innerHTML = `<img src="${item.src}" alt="">`;
           button.addEventListener("click", (event) => {
             event.stopPropagation();
-            const wasActive = Number(viewer.dataset.activeIndex) === index;
-            setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index, {
-              showPick: wasActive && Boolean(viewer._lineArtPickStyle)
-            });
+            setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index);
           });
           thumbnails.appendChild(button);
         });
