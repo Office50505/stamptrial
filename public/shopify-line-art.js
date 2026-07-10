@@ -61,7 +61,7 @@
 "Almost ready...",
 "Adding the finishing touches...",
     ];
-    const GENERATION_STATUS_MESSAGE_MS = 3200;
+    const GENERATION_STATUS_MESSAGE_MS = 2100;
 
     // Constants
     const INK_COLORS = {
@@ -764,11 +764,11 @@
 
       if (uploadProgressTimer) return;
       uploadProgressTimer = setInterval(() => {
-        const cap = uploadProgressValue < 70 ? 88 : 94;
-        const step = uploadProgressValue < 35 ? 2 : uploadProgressValue < 70 ? 1 : 0.35;
+        const cap = uploadProgressValue < 70 ? 91 : 96;
+        const step = uploadProgressValue < 35 ? 4 : uploadProgressValue < 70 ? 2 : 0.65;
         uploadProgressValue = Math.min(cap, uploadProgressValue + step);
         setUploadButtonLoading(true, uploadProgressValue);
-      }, 550);
+      }, 320);
     }
 
     function setGenerationLoading(isLoading = false, progress = 0) {
@@ -825,6 +825,7 @@
           <img class="fullscreen-image" alt="">
           <div class="fullscreen-caption"></div>
           <div class="fullscreen-thumbnails" aria-label="Generated styles"></div>
+          <button class="fullscreen-pick-btn hidden" type="button">Pick this style</button>
         </div>
       `;
 
@@ -834,20 +835,62 @@
         }
       });
 
+      let swipeStart = null;
+      viewer.addEventListener("touchstart", (event) => {
+        if (event.touches.length !== 1 || event.target.closest(".fullscreen-thumb, .fullscreen-pick-btn, .fullscreen-close-btn")) {
+          swipeStart = null;
+          return;
+        }
+        const touch = event.touches[0];
+        swipeStart = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+      }, { passive: true });
+
+      viewer.addEventListener("touchend", (event) => {
+        if (!swipeStart || !event.changedTouches.length) return;
+        const touch = event.changedTouches[0];
+        const dx = touch.clientX - swipeStart.x;
+        const dy = touch.clientY - swipeStart.y;
+        const elapsed = Date.now() - swipeStart.t;
+        swipeStart = null;
+
+        if (Math.abs(dx) > 58 && Math.abs(dy) < 70 && Math.abs(dx) > Math.abs(dy) * 1.25 && elapsed < 900) {
+          event.preventDefault();
+          moveFullscreenVariant(viewer, dx < 0 ? 1 : -1);
+        }
+      }, { passive: false });
+
       document.body.appendChild(viewer);
       return viewer;
     }
 
-    function setFullscreenPreview(viewer, src, caption, activeIndex = -1) {
+    function setFullscreenPickVisible(viewer, isVisible) {
+      const pickButton = viewer.querySelector(".fullscreen-pick-btn");
+      if (!pickButton) return;
+      pickButton.classList.toggle("hidden", !isVisible);
+    }
+
+    function setFullscreenPreview(viewer, src, caption, activeIndex = -1, { showPick = false } = {}) {
       const image = viewer.querySelector(".fullscreen-image");
       const captionEl = viewer.querySelector(".fullscreen-caption");
       image.src = src;
       image.alt = caption;
       captionEl.textContent = caption;
+      viewer.dataset.activeIndex = String(activeIndex);
 
       viewer.querySelectorAll(".fullscreen-thumb").forEach((thumb) => {
         thumb.classList.toggle("active", Number(thumb.dataset.index) === activeIndex);
       });
+      setFullscreenPickVisible(viewer, showPick);
+    }
+
+    function moveFullscreenVariant(viewer, delta) {
+      const gallery = viewer._lineArtGallery || [];
+      if (gallery.length <= 1) return;
+      const currentIndex = Number(viewer.dataset.activeIndex || 0);
+      const nextIndex = (currentIndex + delta + gallery.length) % gallery.length;
+      const item = gallery[nextIndex];
+      if (!item) return;
+      setFullscreenPreview(viewer, item.src, item.caption || `Style ${nextIndex + 1}`, nextIndex);
     }
 
     function openFullscreenImage(src, caption = "Preview", options = {}) {
@@ -855,8 +898,22 @@
       if (!src) return;
       const viewer = ensureFullscreenViewer();
       const thumbnails = viewer.querySelector(".fullscreen-thumbnails");
+      const pickButton = viewer.querySelector(".fullscreen-pick-btn");
       const gallery = Array.isArray(options.gallery) ? options.gallery.filter((item) => item && item.src) : [];
       const activeIndex = Number.isInteger(options.activeIndex) ? options.activeIndex : gallery.findIndex((item) => item.src === src);
+      viewer._lineArtGallery = gallery;
+      viewer._lineArtPickStyle = typeof options.onPick === "function" ? options.onPick : null;
+
+      if (pickButton) {
+        pickButton.onclick = (event) => {
+          event.stopPropagation();
+          const index = Number(viewer.dataset.activeIndex);
+          if (viewer._lineArtPickStyle && Number.isInteger(index) && index >= 0) {
+            closeFullscreenImage();
+            viewer._lineArtPickStyle(index);
+          }
+        };
+      }
 
       if (thumbnails) {
         thumbnails.innerHTML = "";
@@ -870,7 +927,10 @@
           button.innerHTML = `<img src="${item.src}" alt="">`;
           button.addEventListener("click", (event) => {
             event.stopPropagation();
-            setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index);
+            const wasActive = Number(viewer.dataset.activeIndex) === index;
+            setFullscreenPreview(viewer, item.src, item.caption || `Style ${index + 1}`, index, {
+              showPick: wasActive && Boolean(viewer._lineArtPickStyle)
+            });
           });
           thumbnails.appendChild(button);
         });
@@ -1492,7 +1552,8 @@
           event.stopPropagation();
           openFullscreenImage(displayUrl, variantNames[index] || `Style ${index + 1}`, {
             gallery: generatedVariantPreviews,
-            activeIndex: index
+            activeIndex: index,
+            onPick: selectVariant
           });
         };
         preview.addEventListener("click", openPreview);
