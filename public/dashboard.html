@@ -15,11 +15,11 @@
       --text: #111827;
       --muted: #6b7280;
       --muted-light: #9ca3af;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --accent-soft: #eff6ff;
-      --accent-border: #bfdbfe;
-      --accent-text: #1d4ed8;
+      --accent: #111827;
+      --accent-hover: #1f2937;
+      --accent-soft: #f3f4f6;
+      --accent-border: #d1d5db;
+      --accent-text: #374151;
       --success-bg: #ecfdf3;
       --success-text: #166534;
       --success-border: #bbf7d0;
@@ -65,22 +65,17 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      min-width: 220px;
+      gap: 12px;
+      min-width: 240px;
     }
 
     .brand-mark {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      background: var(--accent);
-      color: #ffffff;
-      display: grid;
-      place-items: center;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0;
-      box-shadow: 0 1px 2px rgba(37, 99, 235, 0.24);
+      width: 86px;
+      height: 58px;
+      flex: 0 0 auto;
+      border-radius: 6px;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 1px rgba(17, 24, 39, 0.12));
     }
 
     .heading-block {
@@ -99,25 +94,6 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.4;
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .avatar {
-      width: 34px;
-      height: 34px;
-      border: 1px solid var(--border);
-      border-radius: 50%;
-      background: var(--surface-muted);
-      color: var(--text);
-      display: grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: 800;
     }
 
     .toolbar {
@@ -552,6 +528,13 @@
       border-radius: var(--radius);
     }
 
+    .detail-section.design-content {
+      padding: 14px;
+      background: #ffffff;
+      border-color: var(--accent-border);
+      box-shadow: inset 4px 0 0 var(--accent), 0 1px 2px rgba(17, 24, 39, 0.04);
+    }
+
     .detail-section-title {
       margin-bottom: 10px;
       color: var(--muted);
@@ -576,6 +559,17 @@
       font-size: 12px;
       line-height: 1.35;
       overflow-wrap: anywhere;
+    }
+
+    .design-content .setting {
+      padding: 12px;
+      border-color: var(--accent-border);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .design-content .setting strong {
+      color: var(--accent-text);
     }
 
     .setting.wide {
@@ -669,11 +663,20 @@
     }
 
     @media (max-width: 760px) {
-      .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      main { padding: 14px; gap: 14px; }
+      .topbar-inner { padding: 10px 14px; gap: 12px; }
+      .brand { min-width: 0; width: 100%; }
+      .brand-mark { width: 72px; height: 49px; }
+      .heading-block { min-width: 0; }
+      h1 { font-size: 15px; }
+      .eyebrow { font-size: 12px; }
+      .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .metric-card { padding: 12px; gap: 8px; }
+      .metric-value { font-size: 22px; }
       .card { grid-template-columns: 1fr; grid-template-rows: auto; }
       .card-head, .images, .settings { grid-column: 1; grid-row: auto; }
       .images { border-right: 0; border-bottom: 1px solid var(--border); }
-      .images { grid-template-columns: 1fr; }
+      .images { grid-template-columns: 1fr; padding: 12px; }
       .detail-grid { grid-template-columns: 1fr; }
       input { width: 100%; }
       .toolbar { width: 100%; }
@@ -681,7 +684,6 @@
       .grid { grid-template-columns: 1fr; }
       .image-actions.has-open { grid-template-columns: 1fr; }
       .topbar-inner { align-items: stretch; }
-      .nav-actions { width: 100%; justify-content: space-between; }
       .skeleton-card { grid-template-columns: 1fr; }
       .skeleton-pane:first-child { border-right: 0; border-bottom: 1px solid var(--border); }
     }
@@ -692,13 +694,25 @@
       .images { grid-template-columns: 1fr; }
       .settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+
+    @media (max-width: 480px) {
+      main { padding: 10px; }
+      .topbar-inner { padding: 10px; }
+      .brand-mark { width: 64px; height: 43px; }
+      .metrics-grid { grid-template-columns: 1fr; }
+      .category-tabs { border-radius: 0; margin-inline: -10px; border-left: 0; border-right: 0; }
+      .summary { align-items: flex-start; }
+      .title-row { align-items: stretch; flex-direction: column; }
+      .badge { width: max-content; }
+      .settings, .card-head { padding: 12px; }
+    }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">SM</div>
+        <img class="brand-mark" src="/stamp.webp" alt="" aria-hidden="true">
         <div class="heading-block">
           <h1>StampMyMark Studio</h1>
           <div class="eyebrow">Line art order dashboard</div>
@@ -712,7 +726,6 @@
           <option value="200">Latest 200</option>
         </select>
         <button id="refresh" class="primary" type="button"><span class="refresh-label">Refresh</span></button>
-        <div class="avatar" title="Admin">A</div>
       </div>
     </div>
   </header>
@@ -977,20 +990,20 @@
               ${imageCell("Original upload", design.originalImageUrl, design.designId, "compact")}
             </div>
             <div class="settings">
+              <section class="detail-section design-content">
+                <div class="detail-section-title">Design content</div>
+                <div class="detail-grid">
+                  <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>
+                  <div class="setting"><strong>Below Text</strong>${escapeHtml(settings.belowText || "-")}</div>
+                  ${notes ? `<div class="setting wide"><strong>Designer Notes</strong>${escapeHtml(notes)}</div>` : ""}
+                </div>
+              </section>
               <section class="detail-section">
                 <div class="detail-section-title">Order details</div>
                 <div class="detail-grid">
                   <div class="setting"><strong>Order</strong>${escapeHtml(orderLabel)}</div>
                   <div class="setting"><strong>Order Date</strong>${escapeHtml(orderCreatedLabel)}</div>
                   <div class="setting wide"><strong>Customer</strong>${escapeHtml(customerLabel)}</div>
-                </div>
-              </section>
-              <section class="detail-section">
-                <div class="detail-section-title">Design content</div>
-                <div class="detail-grid">
-                  <div class="setting"><strong>Above Text</strong>${escapeHtml(settings.aboveText || "-")}</div>
-                  <div class="setting"><strong>Below Text</strong>${escapeHtml(settings.belowText || "-")}</div>
-                  ${notes ? `<div class="setting wide"><strong>Designer Notes</strong>${escapeHtml(notes)}</div>` : ""}
                 </div>
               </section>
             </div>
