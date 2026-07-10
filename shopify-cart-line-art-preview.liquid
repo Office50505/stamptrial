@@ -11,18 +11,12 @@
       {% assign design_preview = item.properties['Design Preview'] %}
     {% endif %}
 
-    {% assign reference_id = item.properties['Reference ID'] %}
-    {% if reference_id == blank %}
-      {% assign reference_id = item.properties['_Design ID'] %}
-    {% endif %}
-    {% if reference_id == blank %}
-      {% assign reference_id = item.properties['Design ID'] %}
-    {% endif %}
-
     {% assign stamp_color = item.properties['Stamp Color'] %}
     {% if stamp_color == blank %}
       {% assign stamp_color = item.properties['Ink Color'] %}
     {% endif %}
+
+    {% assign stamp_size = item.properties['Stamp Size'] %}
 
     {% assign top_text = item.properties['Top Text'] %}
     {% if top_text == blank %}
@@ -39,9 +33,9 @@
       {% assign design_notes = item.properties['Notes For Designer'] %}
     {% endif %}
 
-    {% if design_preview != blank or reference_id != blank %}
+    {% if design_preview != blank or stamp_color != blank or stamp_size != blank or top_text != blank or bottom_text != blank or design_notes != blank %}
       {% assign line_art_preview_count = line_art_preview_count | plus: 1 %}
-      <article class="line-art-cart-card">
+      <article class="line-art-cart-card{% if design_preview == blank %} line-art-cart-card--no-image{% endif %}">
         {% if design_preview != blank %}
           <a class="line-art-cart-image-wrap" href="{{ design_preview | escape }}" target="_blank" rel="noopener">
             <img src="{{ design_preview | escape }}" alt="{{ item.product.title | escape }} custom stamp preview">
@@ -53,14 +47,11 @@
           <div class="line-art-cart-title">{{ item.product.title | escape }}</div>
 
           <dl class="line-art-cart-list">
-            {% if reference_id != blank %}
-              <div><dt>Reference ID</dt><dd>{{ reference_id | escape }}</dd></div>
-            {% endif %}
             {% if stamp_color != blank %}
               <div><dt>Stamp Color</dt><dd>{{ stamp_color | capitalize | escape }}</dd></div>
             {% endif %}
-            {% if item.properties['Stamp Size'] != blank %}
-              <div><dt>Size</dt><dd>{{ item.properties['Stamp Size'] | escape }}</dd></div>
+            {% if stamp_size != blank %}
+              <div><dt>Size</dt><dd>{{ stamp_size | escape }}</dd></div>
             {% endif %}
             {% if top_text != blank %}
               <div><dt>Top Text</dt><dd>{{ top_text | escape }}</dd></div>
@@ -85,6 +76,9 @@
 {% if line_art_preview_count > 0 %}
   <style>
     .line-art-cart-preview {
+      container: line-art-cart-preview / inline-size;
+      box-sizing: border-box;
+      max-width: 100%;
       margin: 24px 0;
       padding: 18px;
       border: 1px solid #e5e7eb;
@@ -114,6 +108,7 @@
     }
 
     .line-art-cart-card {
+      box-sizing: border-box;
       display: grid;
       grid-template-columns: 112px minmax(0, 1fr);
       gap: 14px;
@@ -125,7 +120,20 @@
       background: #f9fafb;
     }
 
+    .line-art-cart-details {
+      min-width: 0;
+    }
+
+    .line-art-cart-card--no-image {
+      grid-template-columns: 1fr;
+    }
+
+    .line-art-cart-card--no-image .line-art-cart-details {
+      grid-column: 1 / -1;
+    }
+
     .line-art-cart-image-wrap {
+      box-sizing: border-box;
       width: 112px;
       aspect-ratio: 1;
       display: flex;
@@ -233,6 +241,88 @@
       }
 
       .line-art-cart-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .line-art-cart-card {
+        grid-template-columns: 74px minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .line-art-cart-image-wrap {
+        width: 74px;
+      }
+
+      .line-art-cart-list {
+        grid-template-columns: 1fr;
+      }
+
+      .line-art-cart-title {
+        font-size: 14px;
+      }
+
+      .line-art-cart-card--no-image {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @container line-art-cart-preview (max-width: 420px) {
+      .line-art-cart-card {
+        grid-template-columns: 74px minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .line-art-cart-image-wrap {
+        width: 74px;
+      }
+
+      .line-art-cart-list {
+        grid-template-columns: 1fr;
+      }
+
+      .line-art-cart-title {
+        font-size: 14px;
+      }
+
+      .line-art-cart-card--no-image {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 300px) {
+      .line-art-cart-preview {
+        padding: 12px;
+      }
+
+      .line-art-cart-card {
+        grid-template-columns: 64px minmax(0, 1fr);
+        padding: 10px;
+      }
+
+      .line-art-cart-image-wrap {
+        width: 64px;
+      }
+
+      .line-art-cart-card--no-image {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @container line-art-cart-preview (max-width: 300px) {
+      .line-art-cart-card {
+        grid-template-columns: 64px minmax(0, 1fr);
+        padding: 10px;
+      }
+
+      .line-art-cart-image-wrap {
+        width: 64px;
+      }
+
+      .line-art-cart-card--no-image {
         grid-template-columns: 1fr;
       }
     }

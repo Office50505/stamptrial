@@ -377,20 +377,18 @@
           }
 
           syncCartProperties();
-          if (savedDesignId) {
-            if (!finalDesignImageUrl || lastSavedCartDesignRevision !== cartDesignRevision) {
-              scheduleCartDesignAutoSave(0);
-            }
+          const needsFinalPreviewSave = !finalDesignImageUrl || lastSavedCartDesignRevision !== cartDesignRevision;
+          if (savedDesignId && !needsFinalPreviewSave) {
             return;
           }
 
           event.preventDefault();
           event.stopPropagation();
           setCartSubmitLoading(form, true, "Adding to cart...");
-          if (!selectedDesignSavePromise) {
+          if (!savedDesignId && !selectedDesignSavePromise) {
             saveSelectedDesign(selectedVariantIndex >= 0 ? selectedVariantIndex : 0);
           }
-          const saved = await selectedDesignSavePromise;
+          const saved = savedDesignId || await selectedDesignSavePromise;
 
           if (!saved) {
             setCartSubmitLoading(form, false);
@@ -398,8 +396,16 @@
             return;
           }
 
+          if (!finalDesignImageUrl || lastSavedCartDesignRevision !== cartDesignRevision) {
+            const previewSaved = await saveFinalDesignForCart();
+            if (!previewSaved && !finalDesignImageUrl) {
+              setCartSubmitLoading(form, false);
+              alert("Please wait a moment for your custom stamp preview to finish saving.");
+              return;
+            }
+          }
+
           syncCartProperties();
-          scheduleCartDesignAutoSave(0);
           form.dataset.lineArtSubmitting = "true";
           if (typeof form.requestSubmit === "function") {
             form.requestSubmit();
