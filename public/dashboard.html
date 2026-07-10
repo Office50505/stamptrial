@@ -101,34 +101,6 @@
       line-height: 1.4;
     }
 
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface-muted);
-    }
-
-    .nav-link {
-      min-height: 32px;
-      padding: 0 11px;
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .nav-link.active {
-      background: #ffffff;
-      color: var(--accent-text);
-      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
-    }
-
     .nav-actions {
       display: flex;
       align-items: center;
@@ -710,7 +682,6 @@
       .image-actions.has-open { grid-template-columns: 1fr; }
       .topbar-inner { align-items: stretch; }
       .nav-actions { width: 100%; justify-content: space-between; }
-      .nav-links { flex: 1 1 auto; overflow-x: auto; }
       .skeleton-card { grid-template-columns: 1fr; }
       .skeleton-pane:first-child { border-right: 0; border-bottom: 1px solid var(--border); }
     }
@@ -733,11 +704,6 @@
           <div class="eyebrow">Line art order dashboard</div>
         </div>
       </div>
-      <nav class="nav-links" aria-label="Dashboard navigation">
-        <a class="nav-link active" href="/dashboard.html">Dashboard</a>
-        <a class="nav-link" href="#ordered">Orders</a>
-        <a class="nav-link" href="#settings">Settings</a>
-      </nav>
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search design id, text, size">
         <select id="limit">
