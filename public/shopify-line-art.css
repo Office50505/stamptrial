@@ -874,7 +874,7 @@ body.line-art-fullscreen-open {
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
     }
 .fullscreen-caption {
-      margin-top: 8px;
+      margin-top: 20px;
       color: #ffffff;
       font-size: 14px;
       font-weight: 650;
@@ -906,7 +906,7 @@ body.line-art-fullscreen-open {
     }
 .fullscreen-thumbnails {
       width: min(var(--fullscreen-strip-width, 560px), 100%);
-      margin-top: 8px;
+      margin-top: 12px;
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
@@ -1159,8 +1159,8 @@ body.line-art-fullscreen-open {
 .line-art-customizer-root .crop-canvas { width: 100%; }
 .fullscreen-image-shell { gap: 8px; }
 .fullscreen-image { max-height: min(54vh, calc(100vh - 250px)); }
-.fullscreen-caption { margin-top: 6px; }
-.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); margin-top: 6px; gap: 8px; }
+.fullscreen-caption { margin-top: 14px; }
+.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); margin-top: 10px; gap: 8px; }
 .fullscreen-dots { gap: 7px; }
 .fullscreen-dot { width: 8px; height: 8px; }
 .fullscreen-thumb { padding: 4px; border-radius: 7px; }
