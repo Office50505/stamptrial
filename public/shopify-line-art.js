@@ -1553,17 +1553,44 @@
       isGeneratingLineArt = true;
 
       const loadingStartedAt = Date.now();
+      const traceId = Math.random().toString(36).slice(2, 10);
+      const generationStartedAt = performance.now();
+      let lastGenerationMark = generationStartedAt;
+      const logGenerationTiming = (label, extra = {}) => {
+        const now = performance.now();
+        console.info("[line-art generation]", label, {
+          traceId,
+          stepMs: Math.round(now - lastGenerationMark),
+          totalMs: Math.round(now - generationStartedAt),
+          ...extra
+        });
+        lastGenerationMark = now;
+      };
+
+      logGenerationTiming("started", {
+        sourceInputMode,
+        sourceFileName
+      });
       setGenerationLoading(true, 8);
       await nextPaint();
 
       try {
         const sourceForProcessing = getProcessingImageDataUrl() || await fileToDataUrl(fileInput.files[0]);
+        logGenerationTiming("input prepared", {
+          payloadKb: Math.round(sourceForProcessing.length / 1024)
+        });
         const sessionCacheKey = await getGenerationSessionCacheKey(sourceForProcessing);
         currentGenerationCacheKey = sessionCacheKey;
         const cachedGeneration = getGenerationSessionCache(sessionCacheKey);
         if (cachedGeneration) {
+          logGenerationTiming("session cache hit", {
+            imageCount: cachedGeneration.imageUrls.length
+          });
           setGenerationLoading(true, 68);
           await renderGeneratedVariants(cachedGeneration.imageUrls);
+          logGenerationTiming("cached variants rendered", {
+            imageCount: cachedGeneration.imageUrls.length
+          });
           setGenerationSessionCache(sessionCacheKey, {
             imageUrls: cachedGeneration.imageUrls,
             sourceImageDataUrl: sourceForProcessing,
@@ -1576,6 +1603,7 @@
 
         setGenerationLoading(true, 18);
 
+        logGenerationTiming("requesting backend");
         const response = await fetch(`${BACKEND_BASE_URL}/api/generate-line-art`, {
           method: "POST",
           headers: {
@@ -1585,9 +1613,16 @@
             imageDataUrl: sourceForProcessing
           })
         });
+        logGenerationTiming("backend response received", {
+          status: response.status
+        });
 
         setGenerationLoading(true, 58);
         const data = await response.json().catch(() => ({}));
+        logGenerationTiming("backend response parsed", {
+          cached: Boolean(data.cached),
+          serverTimings: data.timings || null
+        });
         if (!response.ok) {
           throw new Error(data.detail || data.error || data.message || "Generation failed.");
         }
@@ -1604,15 +1639,25 @@
         });
 
         setGenerationLoading(true, 70);
+        logGenerationTiming("rendering variants", {
+          imageCount: imageUrls.length
+        });
         await renderGeneratedVariants(imageUrls);
+        logGenerationTiming("variants rendered", {
+          imageCount: imageUrls.length
+        });
         setGenerationLoading(true, 100);
         await sleep(Math.max(100, 250 - (Date.now() - loadingStartedAt)));
       } catch (err) {
+        logGenerationTiming("failed", {
+          error: err.message || String(err)
+        });
         console.warn(err);
         alert("Could not generate line art variants. Please try another image.");
       } finally {
         isGeneratingLineArt = false;
         setGenerationLoading(false);
+        logGenerationTiming("finished");
       }
     }
 

@@ -210,6 +210,10 @@ function parseDataUrl(dataUrl) {
   return { buffer, mimeType };
 }
 
+function msSince(start) {
+  return Date.now() - start;
+}
+
 function extensionFromMime(mimeType) {
   if (mimeType === "image/jpeg") return "jpg";
   if (mimeType === "image/webp") return "webp";
@@ -401,6 +405,10 @@ If the source contains readable words or lettering, preserve the exact spelling,
  `;
 
 app.post("/api/generate-line-art", async (req, res) => {
+  const requestId = crypto.randomUUID().slice(0, 8);
+  const requestStartedAt = Date.now();
+  const timings = {};
+
   try {
     const { imageDataUrl, forceRegenerate = false } = req.body || {};
     if (!imageDataUrl) {
@@ -408,7 +416,16 @@ app.post("/api/generate-line-art", async (req, res) => {
       return;
     }
 
+    console.info("Line art generation started", {
+      requestId,
+      forceRegenerate: Boolean(forceRegenerate),
+      payloadKb: Math.round(String(imageDataUrl).length / 1024)
+    });
+
+    const parseStartedAt = Date.now();
     const parsedSource = parseDataUrl(imageDataUrl);
+    timings.parseMs = msSince(parseStartedAt);
+    timings.sourceKb = Math.round(parsedSource.buffer.length / 1024);
     const generationCacheKey = getGenerationCacheKey(parsedSource);
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
@@ -416,39 +433,59 @@ app.post("/api/generate-line-art", async (req, res) => {
     const now = new Date();
 
     if (!forceRegenerate) {
+      const cacheStartedAt = Date.now();
       const cachedGeneration = await generationCache.findOne({
         cacheKey: generationCacheKey,
         expiresAt: { $gt: now },
         imageUrls: { $type: "array", $ne: [] }
       });
+      timings.cacheLookupMs = msSince(cacheStartedAt);
 
       if (cachedGeneration) {
+        timings.totalMs = msSince(requestStartedAt);
+        console.info("Line art generation cache hit", {
+          requestId,
+          imageCount: cachedGeneration.imageUrls.length,
+          timings
+        });
         res.json({
           imageUrls: cachedGeneration.imageUrls.slice(0, 4),
-          cached: true
+          cached: true,
+          timings
         });
         return;
       }
     }
 
     const sourceExt = extensionFromMime(parsedSource.mimeType);
+    const bunnyUploadStartedAt = Date.now();
     const sourceImageUrl = await uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
+    timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
     let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
 
+    const publicWaitStartedAt = Date.now();
     await waitForPublicImageUrl(providerImageUrl);
+    timings.bunnyPublicWaitMs = msSince(publicWaitStartedAt);
 
+    const providerStartedAt = Date.now();
     let { response, data } = await requestLineArtProvider(providerImageUrl);
+    timings.providerMs = msSince(providerStartedAt);
     if (!response.ok && response.status === 422 && isProviderImageDownloadError(data)) {
+      const retryStartedAt = Date.now();
       await sleep(1200);
       providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
       await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
       ({ response, data } = await requestLineArtProvider(providerImageUrl));
+      timings.providerRetryMs = msSince(retryStartedAt);
     }
 
     if (!response.ok) {
+      timings.totalMs = msSince(requestStartedAt);
       console.warn("Line art provider rejected request", {
+        requestId,
         status: response.status,
-        detail: data.detail || data.error || data.message || data
+        detail: data.detail || data.error || data.message || data,
+        timings
       });
       res.status(response.status).json({ error: data.detail || data.error || data.message || "Generation failed" });
       return;
@@ -461,8 +498,15 @@ app.post("/api/generate-line-art", async (req, res) => {
     }
 
     const immediateImageUrls = imageUrls.slice(0, 4);
-    res.json({ imageUrls: immediateImageUrls, cached: false, persistence: "pending" });
+    timings.totalMs = msSince(requestStartedAt);
+    console.info("Line art generation completed", {
+      requestId,
+      imageCount: immediateImageUrls.length,
+      timings
+    });
+    res.json({ imageUrls: immediateImageUrls, cached: false, persistence: "pending", timings });
 
+    const persistenceStartedAt = Date.now();
     persistGeneratedImageUrls(immediateImageUrls, generationCacheKey)
       .then((persistentImageUrls) =>
         generationCache.updateOne(
@@ -481,14 +525,27 @@ app.post("/api/generate-line-art", async (req, res) => {
           { upsert: true }
         )
       )
+      .then(() => {
+        console.info("Generated image background persistence completed", {
+          requestId,
+          cacheKey: generationCacheKey,
+          persistenceMs: msSince(persistenceStartedAt)
+        });
+      })
       .catch((error) => {
         console.warn("Generated image background persistence failed", {
+          requestId,
           cacheKey: generationCacheKey,
+          persistenceMs: msSince(persistenceStartedAt),
           error: error.message || String(error)
         });
       });
   } catch (error) {
-    console.error(error);
+    console.error("Line art generation failed", {
+      requestId,
+      totalMs: msSince(requestStartedAt),
+      error
+    });
     res.status(500).json({ error: "Could not generate line art variants" });
   }
 });
