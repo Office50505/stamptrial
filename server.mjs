@@ -71,6 +71,29 @@ let designIndexesPromise;
 let designIndexesReady = false;
 let designOrderPriorityPromise;
 let dashboardMetricsCache = null;
+const dashboardEventClients = new Set();
+
+function broadcastDashboardEvent(type, payload = {}) {
+  const message = `event: dashboard-update\ndata: ${JSON.stringify({ type, ...payload, at: new Date().toISOString() })}\n\n`;
+  for (const client of dashboardEventClients) {
+    try {
+      client.write(message);
+    } catch {
+      dashboardEventClients.delete(client);
+    }
+  }
+}
+
+const dashboardEventHeartbeat = setInterval(() => {
+  for (const client of dashboardEventClients) {
+    try {
+      client.write(": heartbeat\n\n");
+    } catch {
+      dashboardEventClients.delete(client);
+    }
+  }
+}, 25_000);
+dashboardEventHeartbeat.unref?.();
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -228,6 +251,7 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
     });
 
     dashboardMetricsCache = null;
+    broadcastDashboardEvent("order_created", { designIds });
     res.status(200).send("OK");
   } catch (error) {
     console.error("Shopify orders/create webhook failed:", error);
@@ -325,6 +349,7 @@ function dashboardAuth(req, res, next) {
     req.path === "/api/designs" ||
     req.path === "/api/design-count" ||
     req.path === "/api/design-metrics" ||
+    req.path === "/api/dashboard-events" ||
     /^\/api\/designs\/[^/]+\/status$/.test(req.path);
   if (!protectsDashboard) {
     next();
@@ -832,6 +857,7 @@ app.post("/api/save-design", async (req, res) => {
       { upsert: true }
     );
     dashboardMetricsCache = null;
+    broadcastDashboardEvent("design_saved", { designId });
     res.json({ designId, ...uploadedUrls });
   } catch (error) {
     console.error(error);
@@ -875,6 +901,18 @@ function buildDashboardFilter(query = {}) {
   if ([1, 7, 30, 90].includes(days)) filters.push({ createdAt: { $gte: new Date(Date.now() - days * 86_400_000) } });
   return filters.length ? { $and: filters } : {};
 }
+
+app.get("/api/dashboard-events", (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  res.write("retry: 5000\n\n");
+  dashboardEventClients.add(res);
+  req.on("close", () => dashboardEventClients.delete(res));
+});
 
 app.get("/api/design-metrics", async (_req, res) => {
   try {
@@ -973,6 +1011,7 @@ app.patch("/api/designs/:designId/status", async (req, res) => {
       res.status(404).json({ error: "Design not found" });
       return;
     }
+    broadcastDashboardEvent("status_changed", { designId, workflowStatus });
     res.json({ ok: true, workflowStatus });
   } catch (error) {
     console.error(error);
