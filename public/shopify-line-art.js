@@ -58,7 +58,6 @@
 "Mapping the silhouette...",
 "Isolating key contours...",
 "Simplifying the shapes...",
-"Removing the noise...",
 "Boosting the black levels...",
 "Smoothing stray pixels...",
 "Locking in proportions...",
