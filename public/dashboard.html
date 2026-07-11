@@ -751,9 +751,8 @@
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search design id, text, size">
         <select id="limit">
-          <option value="50" selected>Latest 50</option>
-          <option value="100">Latest 100</option>
-          <option value="200">Latest 200</option>
+          <option value="15" selected>Latest 15</option>
+          <option value="30">Latest 30</option>
         </select>
         <button id="refresh" class="primary" type="button"><span class="refresh-label">Refresh</span></button>
       </div>
@@ -879,6 +878,19 @@
       return `${safeId}-${safeLabel}.png`;
     }
 
+    function thumbnailUrl(url) {
+      try {
+        const thumbnail = new URL(url, window.location.origin);
+        thumbnail.searchParams.set("width", "640");
+        thumbnail.searchParams.set("height", "640");
+        thumbnail.searchParams.set("quality", "75");
+        thumbnail.searchParams.set("format", "webp");
+        return thumbnail.toString();
+      } catch {
+        return url;
+      }
+    }
+
     function imageCell(label, url, designId, modifier = "") {
       const cellClass = `image-cell${modifier ? ` ${modifier}` : ""}`;
       if (!url) {
@@ -895,12 +907,13 @@
       }
 
       const safeUrl = escapeHtml(url);
+      const safeThumbnailUrl = escapeHtml(thumbnailUrl(url));
       const fileName = escapeHtml(filenameFrom(label, designId));
       return `
         <div class="${cellClass}">
           <div class="image-label">${label}</div>
           <a class="image-wrap" href="${safeUrl}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(label)}">
-            <img src="${safeUrl}" alt="${escapeHtml(label)}" loading="lazy" crossorigin="anonymous">
+            <img src="${safeThumbnailUrl}" alt="${escapeHtml(label)}" loading="lazy" decoding="async" crossorigin="anonymous">
           </a>
           <div class="image-meta" data-image-meta>Loading dimensions...</div>
           <div class="image-actions has-open">

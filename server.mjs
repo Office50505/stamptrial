@@ -8,6 +8,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const GENERATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const GENERATION_CACHE_VERSION = "line-art-gpt-image-2-low-v1";
+const DESIGN_RETENTION_LIMIT = 30;
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -340,6 +341,81 @@ async function uploadRemoteImageToBunny(path, imageUrl) {
   }
 
   return `${cdnBaseUrl}/${path}`;
+}
+
+function bunnyStoragePathFromUrl(imageUrl) {
+  if (!imageUrl) return "";
+
+  const cdnBaseUrl = new URL(requiredEnv("BUNNY_CDN_BASE_URL"));
+  const candidate = new URL(imageUrl);
+  if (candidate.origin !== cdnBaseUrl.origin) {
+    throw new Error(`Refusing to delete an image outside the configured Bunny CDN: ${candidate.origin}`);
+  }
+
+  const basePath = cdnBaseUrl.pathname.replace(/^\/+|\/+$/g, "");
+  const candidatePath = candidate.pathname.replace(/^\/+/, "");
+  if (basePath && !candidatePath.startsWith(`${basePath}/`)) {
+    throw new Error("Refusing to delete an image outside the configured Bunny CDN path");
+  }
+
+  return basePath ? candidatePath.slice(basePath.length + 1) : candidatePath;
+}
+
+async function deleteBunnyImage(imageUrl) {
+  const path = bunnyStoragePathFromUrl(imageUrl);
+  if (!path) return;
+
+  const storageZone = requiredEnv("BUNNY_STORAGE_ZONE");
+  const storagePassword = requiredEnv("BUNNY_STORAGE_PASSWORD");
+  const storageEndpoint = (process.env.BUNNY_STORAGE_ENDPOINT || "https://storage.bunnycdn.com").replace(/\/$/, "");
+  const response = await fetch(`${storageEndpoint}/${storageZone}/${path}`, {
+    method: "DELETE",
+    headers: { AccessKey: storagePassword }
+  });
+
+  if (!response.ok && response.status !== 404) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Bunny delete failed (${response.status}): ${body || response.statusText}`);
+  }
+}
+
+async function pruneOldDesigns(db) {
+  const oldDesigns = await db.collection("designs")
+    .find({}, {
+      projection: {
+        _id: 1,
+        designId: 1,
+        originalImageUrl: 1,
+        chosenVariantUrl: 1,
+        finalDesignUrl: 1
+      }
+    })
+    .sort({ createdAt: -1, _id: -1 })
+    .skip(DESIGN_RETENTION_LIMIT)
+    .toArray();
+
+  const deletedIds = [];
+  for (const design of oldDesigns) {
+    try {
+      const imageUrls = Array.from(new Set([
+        design.originalImageUrl,
+        design.chosenVariantUrl,
+        design.finalDesignUrl
+      ].filter(Boolean)));
+      await Promise.all(imageUrls.map(deleteBunnyImage));
+      deletedIds.push(design._id);
+    } catch (error) {
+      console.warn("Old design cleanup skipped after Bunny deletion failure", {
+        designId: design.designId,
+        error: error.message || String(error)
+      });
+    }
+  }
+
+  if (deletedIds.length) {
+    await db.collection("designs").deleteMany({ _id: { $in: deletedIds } });
+    console.info("Old designs pruned", { count: deletedIds.length, retained: DESIGN_RETENTION_LIMIT });
+  }
 }
 
 function getGenerationCacheKey({ buffer, mimeType }) {
@@ -695,6 +771,9 @@ app.post("/api/save-design", async (req, res) => {
       { upsert: true }
     );
     res.json({ designId, ...uploadedUrls });
+    pruneOldDesigns(db).catch((error) => {
+      console.warn("Post-save design retention cleanup failed", { error: error.message || String(error) });
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not save design" });
@@ -815,6 +894,9 @@ app.listen(port, () => {
     .then((client) => {
       const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
       warmDesignIndexes(db);
+      pruneOldDesigns(db).catch((error) => {
+        console.warn("Startup design retention cleanup failed", { error: error.message || String(error) });
+      });
     })
     .catch((error) => {
       console.warn("Design index startup warmup skipped", { error: error.message || String(error) });
