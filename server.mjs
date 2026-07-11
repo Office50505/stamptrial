@@ -236,6 +236,51 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
 });
 
 app.use(express.json({ limit: "35mb" }));
+
+function dashboardAuth(req, res, next) {
+  const protectsDashboard = req.path === "/dashboard.html" ||
+    req.path === "/api/designs" ||
+    req.path === "/api/design-count" ||
+    req.path === "/api/design-metrics" ||
+    /^\/api\/designs\/[^/]+\/status$/.test(req.path);
+  if (!protectsDashboard) {
+    next();
+    return;
+  }
+
+  const expectedPassword = process.env.DASHBOARD_PASSWORD;
+  const expectedUsername = process.env.DASHBOARD_USERNAME || "admin";
+  if (!expectedPassword) {
+    res.status(503).send("Dashboard authentication is not configured.");
+    return;
+  }
+
+  const authorization = req.get("authorization") || "";
+  let suppliedUsername = "";
+  let suppliedPassword = "";
+  if (authorization.startsWith("Basic ")) {
+    try {
+      const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
+      const separator = decoded.indexOf(":");
+      suppliedUsername = separator >= 0 ? decoded.slice(0, separator) : decoded;
+      suppliedPassword = separator >= 0 ? decoded.slice(separator + 1) : "";
+    } catch {}
+  }
+
+  const digest = (value) => crypto.createHash("sha256").update(String(value)).digest();
+  const validUsername = crypto.timingSafeEqual(digest(suppliedUsername), digest(expectedUsername));
+  const validPassword = crypto.timingSafeEqual(digest(suppliedPassword), digest(expectedPassword));
+  if (!validUsername || !validPassword) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="StampMyMark Dashboard", charset="UTF-8"');
+    res.status(401).send("Authentication required.");
+    return;
+  }
+
+  res.setHeader("Cache-Control", "private, no-store");
+  next();
+}
+
+app.use(dashboardAuth);
 app.use(express.static("public"));
 
 function getGeneratedImageUrls(data) {
