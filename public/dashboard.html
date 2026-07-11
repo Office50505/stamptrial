@@ -750,10 +750,6 @@
       </div>
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search design id, text, size">
-        <select id="limit">
-          <option value="15" selected>Latest 15</option>
-          <option value="30">Latest 30</option>
-        </select>
         <button id="refresh" class="primary" type="button"><span class="refresh-label">Refresh</span></button>
       </div>
     </div>
@@ -1104,7 +1100,6 @@
     }
 
     async function loadDesigns() {
-      const limit = document.getElementById("limit").value;
       const content = document.getElementById("content");
       const refreshButton = document.getElementById("refresh");
       refreshButton.disabled = true;
@@ -1115,7 +1110,7 @@
       document.getElementById("summary").textContent = "Loading designs...";
 
       try {
-        const response = await fetch(`/api/designs?limit=${encodeURIComponent(limit)}`);
+        const response = await fetch("/api/designs");
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(data.error || "Could not load designs.");
@@ -1139,7 +1134,6 @@
     }
 
     document.getElementById("refresh").addEventListener("click", loadDesigns);
-    document.getElementById("limit").addEventListener("change", loadDesigns);
     document.getElementById("search").addEventListener("input", render);
     document.getElementById("category-tabs").addEventListener("click", (event) => {
       const button = event.target.closest("[data-category]");
