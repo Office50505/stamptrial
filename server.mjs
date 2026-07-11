@@ -70,6 +70,7 @@ let mongoClientPromise;
 let designIndexesPromise;
 let designIndexesReady = false;
 let designOrderPriorityPromise;
+let dashboardMetricsCache = null;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -226,6 +227,7 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
       webhookId
     });
 
+    dashboardMetricsCache = null;
     res.status(200).send("OK");
   } catch (error) {
     console.error("Shopify orders/create webhook failed:", error);
@@ -722,6 +724,7 @@ app.post("/api/save-design", async (req, res) => {
       },
       { upsert: true }
     );
+    dashboardMetricsCache = null;
     res.json({ designId, ...uploadedUrls });
   } catch (error) {
     console.error(error);
@@ -729,99 +732,144 @@ app.post("/api/save-design", async (req, res) => {
   }
 });
 
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
+}
+
+function buildDashboardFilter(query = {}) {
+  const filters = [];
+  const search = String(query.q || "").trim();
+  if (search) {
+    const pattern = new RegExp(escapeRegex(search), "i");
+    filters.push({ $or: [
+      { designId: pattern }, { orderName: pattern }, { orderNumber: pattern },
+      { customerName: pattern }, { customerEmail: pattern },
+      { "settings.aboveText": pattern }, { "settings.belowText": pattern },
+      { "settings.notesForDesigner": pattern }
+    ] });
+  }
+  if (query.size) filters.push({ "settings.selectedSize": String(query.size) });
+  if (query.final === "yes") filters.push({ finalDesignUrl: { $exists: true, $nin: [null, ""] } });
+  if (query.final === "no") filters.push({ $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] });
+
+  const status = String(query.status || "all");
+  const hasFinal = { finalDesignUrl: { $exists: true, $nin: [null, ""] } };
+  const noFinal = { $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] };
+  const automatic = { $or: [{ workflowStatus: { $exists: false } }, { workflowStatus: { $in: [null, "", "new_order"] } }] };
+  if (status === "ordered") filters.push({ hasOrder: true });
+  if (status === "awaiting_order") filters.push({ hasOrder: false });
+  if (status === "new_order") filters.push({ $and: [{ hasOrder: true }, automatic, noFinal] });
+  if (status === "in_production") filters.push({ workflowStatus: "in_production" });
+  if (status === "ready") filters.push({ $or: [{ workflowStatus: "ready" }, { $and: [automatic, hasFinal] }] });
+  if (status === "completed") filters.push({ workflowStatus: "completed" });
+  if (status === "needs_attention") filters.push({ $and: [{ hasOrder: true }, { workflowStatus: { $ne: "completed" } }, noFinal] });
+
+  const days = Number(query.days);
+  if ([1, 7, 30, 90].includes(days)) filters.push({ createdAt: { $gte: new Date(Date.now() - days * 86_400_000) } });
+  return filters.length ? { $and: filters } : {};
+}
+
+app.get("/api/design-metrics", async (_req, res) => {
+  try {
+    if (dashboardMetricsCache && dashboardMetricsCache.expiresAt > Date.now()) {
+      res.json({ metrics: dashboardMetricsCache.metrics, cached: true });
+      return;
+    }
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    await Promise.all([ensureDesignOrderPriority(db), ensureDesignIndexes(db)]);
+    const collection = db.collection("designs");
+    const [total, ordered, finalReady, needsAttention] = await Promise.all([
+      collection.countDocuments({}),
+      collection.countDocuments({ hasOrder: true }),
+      collection.countDocuments({ finalDesignUrl: { $exists: true, $nin: [null, ""] } }),
+      collection.countDocuments({ hasOrder: true, workflowStatus: { $ne: "completed" }, $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] })
+    ]);
+    const metrics = { total, ordered, awaiting: total - ordered, finalReady, needsAttention };
+    dashboardMetricsCache = { metrics, expiresAt: Date.now() + 30_000 };
+    res.json({ metrics });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Could not load dashboard metrics" });
+  }
+});
+
+app.get("/api/design-count", async (req, res) => {
+  try {
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    await ensureDesignOrderPriority(db);
+    res.json({ count: await db.collection("designs").countDocuments(buildDashboardFilter(req.query)) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Could not count designs" });
+  }
+});
+
 app.get("/api/designs", async (req, res) => {
   const startedAt = Date.now();
   try {
-    const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 25));
+    const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 15));
     let cursor = null;
     if (req.query.cursor) {
       try {
         cursor = JSON.parse(Buffer.from(String(req.query.cursor), "base64url").toString("utf8"));
-        if (typeof cursor.hasOrder !== "boolean" || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) {
-          throw new Error("Invalid cursor");
-        }
+        if (typeof cursor.hasOrder !== "boolean" || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
       } catch {
         res.status(400).json({ error: "Invalid pagination cursor" });
         return;
       }
     }
-
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     await Promise.all([ensureDesignOrderPriority(db), ensureDesignIndexes(db)]);
-    const query = cursor
-      ? {
-          $or: [
-            { hasOrder: { $lt: cursor.hasOrder } },
-            { hasOrder: cursor.hasOrder, createdAt: { $lt: new Date(cursor.createdAt) } },
-            { hasOrder: cursor.hasOrder, createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
-          ]
-        }
-      : {};
+    const baseQuery = buildDashboardFilter(req.query);
+    const cursorQuery = cursor ? { $or: [
+      { hasOrder: { $lt: cursor.hasOrder } },
+      { hasOrder: cursor.hasOrder, createdAt: { $lt: new Date(cursor.createdAt) } },
+      { hasOrder: cursor.hasOrder, createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
+    ] } : null;
+    const query = cursorQuery ? (Object.keys(baseQuery).length ? { $and: [baseQuery, cursorQuery] } : cursorQuery) : baseQuery;
     const queryStartedAt = Date.now();
-    const collection = db.collection("designs");
-    const resultsPromise = collection
-      .find(query, {
-        projection: {
-          _id: 0,
-          designId: 1,
-          hasOrder: 1,
-          originalImageUrl: 1,
-          chosenVariantUrl: 1,
-          finalDesignUrl: 1,
-          settings: 1,
-          orderId: 1,
-          orderName: 1,
-          orderNumber: 1,
-          orderCreatedAt: 1,
-          customerEmail: 1,
-          customerName: 1,
-          createdAt: 1
-        }
-      })
-      .sort({ hasOrder: -1, createdAt: -1, designId: -1 })
-      .limit(limit + 1)
-      .toArray();
-    const metricsPromise = cursor
-      ? Promise.resolve(null)
-      : Promise.all([
-          collection.countDocuments({}),
-          collection.countDocuments({ hasOrder: true }),
-          collection.countDocuments({ finalDesignUrl: { $exists: true, $nin: [null, ""] } })
-        ]).then(([total, ordered, finalReady]) => ({
-          total,
-          ordered,
-          awaiting: total - ordered,
-          finalReady
-        }));
-    const [results, metrics] = await Promise.all([resultsPromise, metricsPromise]);
+    const results = await db.collection("designs").find(query, { projection: {
+      _id: 0, designId: 1, hasOrder: 1, workflowStatus: 1,
+      originalImageUrl: 1, chosenVariantUrl: 1, finalDesignUrl: 1,
+      settings: 1, orderId: 1, orderName: 1, orderNumber: 1,
+      orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
+    }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 }).limit(limit + 1).toArray();
 
     const hasMore = results.length > limit;
     const designs = hasMore ? results.slice(0, limit) : results;
-    const lastDesign = designs[designs.length - 1];
-    const nextCursor = hasMore && lastDesign?.createdAt && lastDesign?.designId
-      ? Buffer.from(JSON.stringify({
-          hasOrder: Boolean(lastDesign.hasOrder),
-          createdAt: new Date(lastDesign.createdAt).toISOString(),
-          designId: lastDesign.designId
-        })).toString("base64url")
+    const last = designs.at(-1);
+    const nextCursor = hasMore && last?.createdAt && last?.designId
+      ? Buffer.from(JSON.stringify({ hasOrder: Boolean(last.hasOrder), createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
       : null;
-    const timings = {
-      queryMs: msSince(queryStartedAt),
-      totalMs: msSince(startedAt),
-      indexReady: designIndexesReady
-    };
-
-    console.info("Dashboard designs loaded", {
-      count: designs.length,
-      hasMore,
-      timings
-    });
-
-    res.json({ designs, nextCursor, metrics, timings });
+    res.json({ designs, nextCursor, timings: { queryMs: msSince(queryStartedAt), totalMs: msSince(startedAt), indexReady: designIndexesReady } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not load designs" });
+  }
+});
+
+app.patch("/api/designs/:designId/status", async (req, res) => {
+  try {
+    const designId = String(req.params.designId || "").trim();
+    const workflowStatus = String(req.body?.workflowStatus || "");
+    if (!/^des_[a-f0-9-]{36}$/i.test(designId) || !["new_order", "in_production", "ready", "completed"].includes(workflowStatus)) {
+      res.status(400).json({ error: "Invalid design or workflow status" });
+      return;
+    }
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    const result = await db.collection("designs").updateOne({ designId }, { $set: { workflowStatus, updatedAt: new Date() } });
+    if (!result.matchedCount) {
+      res.status(404).json({ error: "Design not found" });
+      return;
+    }
+    res.json({ ok: true, workflowStatus });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Could not update workflow status" });
   }
 });
 
