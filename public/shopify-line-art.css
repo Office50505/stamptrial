@@ -84,8 +84,8 @@
     }
 .line-art-customizer-root /* STEP 1: Upload Layout */
     .upload-step-layout {
-      max-width: 680px;
-      margin: 0 auto;
+      max-width: none;
+      margin: 0;
       width: 100%;
     }
 .line-art-customizer-root .glass-panel.upload-step-layout {
