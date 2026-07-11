@@ -878,27 +878,12 @@
       return `${safeId}-${safeLabel}.png`;
     }
 
-    function thumbnailUrl(url) {
-      try {
-        const thumbnail = new URL(url, window.location.origin);
-        thumbnail.searchParams.set("width", "640");
-        thumbnail.searchParams.set("height", "640");
-        thumbnail.searchParams.set("quality", "75");
-        thumbnail.searchParams.set("format", "webp");
-        return thumbnail.toString();
-      } catch {
-        return url;
-      }
-    }
-
     function imageCell(label, url, designId, modifier = "") {
       const cellClass = `image-cell${modifier ? ` ${modifier}` : ""}`;
       if (!url) {
         return `
           <div class="${cellClass}">
             <div class="image-label">${label}</div>
-            <div class="image-wrap"><div class="image-empty">Not saved</div></div>
-            <div class="image-meta">-</div>
             <div class="image-actions">
               <button class="secondary" type="button" disabled>Unavailable</button>
             </div>
@@ -907,18 +892,13 @@
       }
 
       const safeUrl = escapeHtml(url);
-      const safeThumbnailUrl = escapeHtml(thumbnailUrl(url));
       const fileName = escapeHtml(filenameFrom(label, designId));
       return `
         <div class="${cellClass}">
           <div class="image-label">${label}</div>
-          <a class="image-wrap" href="${safeUrl}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(label)}">
-            <img src="${safeThumbnailUrl}" alt="${escapeHtml(label)}" loading="lazy" decoding="async" crossorigin="anonymous">
-          </a>
-          <div class="image-meta" data-image-meta>Loading dimensions...</div>
           <div class="image-actions has-open">
             <button class="download-btn" type="button" data-download-url="${safeUrl}" data-download-name="${fileName}">Download PNG</button>
-            <a class="open-link" href="${safeUrl}" target="_blank" rel="noopener">Open</a>
+            <a class="open-link" href="${safeUrl}" target="_blank" rel="noopener">Open image</a>
           </div>
         </div>
       `;
@@ -1054,27 +1034,7 @@
         `;
       }).join("");
 
-      hydrateImageMetadata();
       hydrateDownloadButtons();
-    }
-
-    function hydrateImageMetadata() {
-      document.querySelectorAll(".image-cell img").forEach((img) => {
-        const meta = img.closest(".image-cell").querySelector("[data-image-meta]");
-        const update = () => {
-          meta.textContent = img.naturalWidth && img.naturalHeight
-            ? `${img.naturalWidth} x ${img.naturalHeight}px`
-            : "Dimensions unavailable";
-        };
-        if (img.complete) {
-          update();
-        } else {
-          img.addEventListener("load", update, { once: true });
-          img.addEventListener("error", () => {
-            meta.textContent = "Could not load image";
-          }, { once: true });
-        }
-      });
     }
 
     function downloadBlob(blob, filename) {
