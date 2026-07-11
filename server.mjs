@@ -530,24 +530,33 @@ app.post("/api/generate-line-art", async (req, res) => {
       return;
     }
 
-    const persistentImageUrls = await persistGeneratedImageUrls(imageUrls, generationCacheKey);
-    await generationCache.updateOne(
-      { cacheKey: generationCacheKey },
-      {
-        $set: {
-          cacheKey: generationCacheKey,
-          cacheVersion: GENERATION_CACHE_VERSION,
-          imageUrls: persistentImageUrls.slice(0, 4),
-          sourceMimeType: parsedSource.mimeType,
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + GENERATION_CACHE_TTL_MS)
-        },
-        $setOnInsert: { createdAt: new Date() }
-      },
-      { upsert: true }
-    );
+    const immediateImageUrls = imageUrls.slice(0, 4);
+    res.json({ imageUrls: immediateImageUrls, cached: false, persistence: "pending" });
 
-    res.json({ imageUrls: persistentImageUrls, cached: false });
+    persistGeneratedImageUrls(immediateImageUrls, generationCacheKey)
+      .then((persistentImageUrls) =>
+        generationCache.updateOne(
+          { cacheKey: generationCacheKey },
+          {
+            $set: {
+              cacheKey: generationCacheKey,
+              cacheVersion: GENERATION_CACHE_VERSION,
+              imageUrls: persistentImageUrls.slice(0, 4),
+              sourceMimeType: parsedSource.mimeType,
+              updatedAt: new Date(),
+              expiresAt: new Date(Date.now() + GENERATION_CACHE_TTL_MS)
+            },
+            $setOnInsert: { createdAt: new Date() }
+          },
+          { upsert: true }
+        )
+      )
+      .catch((error) => {
+        console.warn("Generated image background persistence failed", {
+          cacheKey: generationCacheKey,
+          error: error.message || String(error)
+        });
+      });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not generate line art variants" });
