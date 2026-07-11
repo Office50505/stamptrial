@@ -20,7 +20,11 @@ function isAllowedOrigin(origin) {
 
   try {
     const { hostname, protocol } = new URL(origin);
-    return protocol === "https:" && hostname.endsWith(".myshopify.com");
+    return protocol === "https:" && (
+      hostname.endsWith(".myshopify.com") ||
+      hostname === "stampmybrand.com" ||
+      hostname.endsWith(".stampmybrand.com")
+    );
   } catch {
     return false;
   }
