@@ -237,6 +237,89 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
 
 app.use(express.json({ limit: "35mb" }));
 
+const DASHBOARD_COOKIE = "stamp_dashboard_session";
+const DASHBOARD_SESSION_SECONDS = 12 * 60 * 60;
+const dashboardLoginAttempts = new Map();
+
+function dashboardDigest(value) {
+  return crypto.createHash("sha256").update(String(value)).digest();
+}
+
+function dashboardSessionSignature(expiresAt) {
+  const secret = process.env.DASHBOARD_SESSION_SECRET || process.env.DASHBOARD_PASSWORD || "";
+  return crypto.createHmac("sha256", secret)
+    .update(`${process.env.DASHBOARD_USERNAME || "admin"}.${expiresAt}`)
+    .digest("base64url");
+}
+
+function createDashboardSession() {
+  const expiresAt = Math.floor(Date.now() / 1000) + DASHBOARD_SESSION_SECONDS;
+  return `${expiresAt}.${dashboardSessionSignature(expiresAt)}`;
+}
+
+function hasValidDashboardSession(req) {
+  const cookieHeader = req.get("cookie") || "";
+  const cookies = Object.fromEntries(cookieHeader.split(";").map((part) => {
+    const separator = part.indexOf("=");
+    return separator < 0 ? [part.trim(), ""] : [part.slice(0, separator).trim(), decodeURIComponent(part.slice(separator + 1))];
+  }));
+  const token = cookies[DASHBOARD_COOKIE] || "";
+  const separator = token.indexOf(".");
+  if (separator < 0) return false;
+  const expiresAt = Number(token.slice(0, separator));
+  if (!Number.isFinite(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return false;
+  const supplied = token.slice(separator + 1);
+  const expected = dashboardSessionSignature(expiresAt);
+  return crypto.timingSafeEqual(dashboardDigest(supplied), dashboardDigest(expected));
+}
+
+function dashboardCookie(req, value, maxAge) {
+  const forwardedProtocol = String(req.get("x-forwarded-proto") || "").split(",")[0].trim();
+  const secure = req.secure || forwardedProtocol === "https" || process.env.NODE_ENV === "production";
+  return `${DASHBOARD_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
+}
+
+app.post("/api/dashboard-login", (req, res) => {
+  const expectedPassword = process.env.DASHBOARD_PASSWORD;
+  const expectedUsername = process.env.DASHBOARD_USERNAME || "admin";
+  if (!expectedPassword) {
+    res.status(503).json({ error: "Dashboard authentication is not configured." });
+    return;
+  }
+
+  const key = req.ip || req.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  const attempt = dashboardLoginAttempts.get(key);
+  if (attempt && attempt.resetAt > now && attempt.count >= 10) {
+    res.setHeader("Retry-After", String(Math.ceil((attempt.resetAt - now) / 1000)));
+    res.status(429).json({ error: "Too many login attempts. Try again later." });
+    return;
+  }
+
+  const username = String(req.body?.username || "");
+  const password = String(req.body?.password || "");
+  const validUsername = crypto.timingSafeEqual(dashboardDigest(username), dashboardDigest(expectedUsername));
+  const validPassword = crypto.timingSafeEqual(dashboardDigest(password), dashboardDigest(expectedPassword));
+  if (!validUsername || !validPassword) {
+    const current = attempt && attempt.resetAt > now ? attempt : { count: 0, resetAt: now + 15 * 60 * 1000 };
+    current.count++;
+    dashboardLoginAttempts.set(key, current);
+    res.status(401).json({ error: "Incorrect username or password." });
+    return;
+  }
+
+  dashboardLoginAttempts.delete(key);
+  res.setHeader("Set-Cookie", dashboardCookie(req, createDashboardSession(), DASHBOARD_SESSION_SECONDS));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
+
+app.post("/api/dashboard-logout", (req, res) => {
+  res.setHeader("Set-Cookie", dashboardCookie(req, "", 0));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
+
 function dashboardAuth(req, res, next) {
   const protectsDashboard = req.path === "/dashboard.html" ||
     req.path === "/api/designs" ||
@@ -247,37 +330,16 @@ function dashboardAuth(req, res, next) {
     next();
     return;
   }
-
-  const expectedPassword = process.env.DASHBOARD_PASSWORD;
-  const expectedUsername = process.env.DASHBOARD_USERNAME || "admin";
-  if (!expectedPassword) {
-    res.status(503).send("Dashboard authentication is not configured.");
+  if (hasValidDashboardSession(req)) {
+    res.setHeader("Cache-Control", "private, no-store");
+    next();
     return;
   }
-
-  const authorization = req.get("authorization") || "";
-  let suppliedUsername = "";
-  let suppliedPassword = "";
-  if (authorization.startsWith("Basic ")) {
-    try {
-      const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
-      const separator = decoded.indexOf(":");
-      suppliedUsername = separator >= 0 ? decoded.slice(0, separator) : decoded;
-      suppliedPassword = separator >= 0 ? decoded.slice(separator + 1) : "";
-    } catch {}
-  }
-
-  const digest = (value) => crypto.createHash("sha256").update(String(value)).digest();
-  const validUsername = crypto.timingSafeEqual(digest(suppliedUsername), digest(expectedUsername));
-  const validPassword = crypto.timingSafeEqual(digest(suppliedPassword), digest(expectedPassword));
-  if (!validUsername || !validPassword) {
-    res.setHeader("WWW-Authenticate", 'Basic realm="StampMyMark Dashboard", charset="UTF-8"');
-    res.status(401).send("Authentication required.");
+  if (req.path === "/dashboard.html") {
+    res.redirect(302, "/dashboard-login.html");
     return;
   }
-
-  res.setHeader("Cache-Control", "private, no-store");
-  next();
+  res.status(401).json({ error: "Authentication required." });
 }
 
 app.use(dashboardAuth);
