@@ -673,6 +673,7 @@
       initUploadPictureButton();
       hideAdvancedTextControls();
       initDesignerNotesControl();
+      initPersonalizationFields();
       initNoMockupCustomizerFlow();
     }
 
@@ -701,6 +702,30 @@
       }
 
       initCustomizerPreviewFullscreen();
+    }
+
+    function initPersonalizationFields() {
+      const fields = [
+        {
+          input: document.getElementById("above-text-input"),
+          label: "Text Above the Picture",
+          placeholder: "You can leave this blank if you do not want any text here."
+        },
+        {
+          input: document.getElementById("below-text-input"),
+          label: "Text Below the Picture",
+          placeholder: "You can leave this blank if you do not want any text here."
+        }
+      ];
+
+      fields.forEach(({ input, label, placeholder }) => {
+        if (!input) return;
+        const group = input.closest(".control-group");
+        const labelEl = group?.querySelector(".control-label");
+        group?.classList.add("personalization-field-group");
+        if (labelEl) labelEl.textContent = label;
+        input.placeholder = placeholder;
+      });
     }
 
     function initCustomizerPreviewFullscreen() {
@@ -1100,10 +1125,10 @@
       if (!belowTextGroup) return;
 
       const notesGroup = document.createElement("div");
-      notesGroup.className = "control-group designer-notes-group";
+      notesGroup.className = "control-group designer-notes-group personalization-field-group";
       notesGroup.innerHTML = `
-        <label class="control-label">Notes For Your Designer (Optional)</label>
-        <textarea class="textarea-field" id="designer-notes-input" placeholder="Add any extra instructions..." rows="4"></textarea>
+        <label class="control-label">Notes For Your Designer</label>
+        <textarea class="textarea-field" id="designer-notes-input" placeholder="You can leave this blank if you do not want any text here." rows="4"></textarea>
       `;
 
       const notesInput = notesGroup.querySelector("#designer-notes-input");

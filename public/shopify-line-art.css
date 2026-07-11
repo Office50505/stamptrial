@@ -521,6 +521,9 @@
       font-size: 12px;
       color: var(--text-secondary);
     }
+.line-art-customizer-root .personalization-field-group .control-label {
+      color: #2E86F5;
+    }
 .line-art-customizer-root .input-field {
       width: 100%;
       background: #ffffff;
@@ -536,6 +539,16 @@
 .line-art-customizer-root .input-field:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+.line-art-customizer-root .personalization-field-group .input-field,
+.line-art-customizer-root .personalization-field-group .textarea-field {
+      border-color: #2E86F5;
+      box-shadow: 0 0 0 1px rgba(46, 134, 245, 0.08);
+    }
+.line-art-customizer-root .personalization-field-group .input-field:focus,
+.line-art-customizer-root .personalization-field-group .textarea-field:focus {
+      border-color: #2E86F5;
+      box-shadow: 0 0 0 3px rgba(46, 134, 245, 0.18);
     }
 .line-art-customizer-root .textarea-field {
       width: 100%;
