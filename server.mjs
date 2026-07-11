@@ -681,6 +681,48 @@ app.get("/api/designs", async (req, res) => {
   }
 });
 
+app.get("/api/design-preview/:designId", async (req, res) => {
+  try {
+    const designId = String(req.params.designId || "").trim();
+    if (!/^des_[a-f0-9-]{36}$/i.test(designId)) {
+      res.status(404).send("Preview not found");
+      return;
+    }
+
+    const client = await getMongoClient();
+    const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    const design = await db.collection("designs").findOne(
+      { designId },
+      {
+        projection: {
+          _id: 0,
+          finalDesignUrl: 1,
+          chosenVariantUrl: 1,
+          originalImageUrl: 1,
+          settings: 1
+        }
+      }
+    );
+
+    const previewUrl = design?.finalDesignUrl ||
+      design?.chosenVariantUrl ||
+      design?.settings?.selectedVariantPreviewUrl ||
+      design?.originalImageUrl ||
+      "";
+
+    if (!previewUrl) {
+      res.status(404).send("Preview not ready");
+      return;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(302, previewUrl);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Could not load design preview");
+  }
+});
+
 app.use((error, req, res, _next) => {
   applyCorsHeaders(req, res);
   console.error(error);

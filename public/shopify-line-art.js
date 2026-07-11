@@ -234,9 +234,13 @@
       };
     }
 
+    function getSavedDesignPreviewUrl() {
+      return savedDesignId ? `${BACKEND_BASE_URL}/api/design-preview/${encodeURIComponent(savedDesignId)}` : "";
+    }
+
     function syncCartProperties() {
       ensureCartPropertyInputs();
-      setCartProperty("_Design Preview", finalDesignImageUrl);
+      setCartProperty("_Design Preview", finalDesignImageUrl || getSavedDesignPreviewUrl());
       setCartProperty("_Design ID", savedDesignId);
       setCartProperty("Reference ID", savedDesignId);
       setCartProperty("Stamp Color", currentInkColor);
