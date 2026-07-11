@@ -1621,6 +1621,7 @@
         const data = await response.json().catch(() => ({}));
         logGenerationTiming("backend response parsed", {
           cached: Boolean(data.cached),
+          providerInput: data.providerInput || "",
           serverTimings: data.timings || null
         });
         if (!response.ok) {

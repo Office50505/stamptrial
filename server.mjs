@@ -459,24 +459,60 @@ app.post("/api/generate-line-art", async (req, res) => {
 
     const sourceExt = extensionFromMime(parsedSource.mimeType);
     const bunnyUploadStartedAt = Date.now();
-    const sourceImageUrl = await uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
-    timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
-    let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
+    const sourceUploadPromise = uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
+    sourceUploadPromise
+      .then(() => {
+        timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
+        console.info("Generation input background upload completed", {
+          requestId,
+          bunnyUploadMs: timings.bunnyUploadMs
+        });
+      })
+      .catch((error) => {
+        timings.bunnyUploadFailedMs = msSince(bunnyUploadStartedAt);
+        console.warn("Generation input background upload failed", {
+          requestId,
+          bunnyUploadFailedMs: timings.bunnyUploadFailedMs,
+          error: error.message || String(error)
+        });
+      });
 
-    const publicWaitStartedAt = Date.now();
-    await waitForPublicImageUrl(providerImageUrl);
-    timings.bunnyPublicWaitMs = msSince(publicWaitStartedAt);
-
+    let providerInput = "data-uri";
     const providerStartedAt = Date.now();
-    let { response, data } = await requestLineArtProvider(providerImageUrl);
-    timings.providerMs = msSince(providerStartedAt);
-    if (!response.ok && response.status === 422 && isProviderImageDownloadError(data)) {
-      const retryStartedAt = Date.now();
-      await sleep(1200);
-      providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
-      await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
+    let { response, data } = await requestLineArtProvider(imageDataUrl);
+    timings.providerDirectMs = msSince(providerStartedAt);
+
+    if (!response.ok) {
+      const fallbackStartedAt = Date.now();
+      console.warn("Direct line art provider request failed; falling back to Bunny URL", {
+        requestId,
+        status: response.status,
+        detail: data.detail || data.error || data.message || data,
+        timings
+      });
+
+      const sourceImageUrl = await sourceUploadPromise;
+      if (!timings.bunnyUploadMs) timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
+      let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
+
+      const publicWaitStartedAt = Date.now();
+      await waitForPublicImageUrl(providerImageUrl);
+      timings.bunnyPublicWaitMs = msSince(publicWaitStartedAt);
+
+      providerInput = "bunny-url";
+      const fallbackProviderStartedAt = Date.now();
       ({ response, data } = await requestLineArtProvider(providerImageUrl));
-      timings.providerRetryMs = msSince(retryStartedAt);
+      timings.providerFallbackMs = msSince(fallbackProviderStartedAt);
+      timings.fallbackTotalMs = msSince(fallbackStartedAt);
+
+      if (!response.ok && response.status === 422 && isProviderImageDownloadError(data)) {
+        const retryStartedAt = Date.now();
+        await sleep(1200);
+        providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
+        await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
+        ({ response, data } = await requestLineArtProvider(providerImageUrl));
+        timings.providerRetryMs = msSince(retryStartedAt);
+      }
     }
 
     if (!response.ok) {
@@ -501,10 +537,11 @@ app.post("/api/generate-line-art", async (req, res) => {
     timings.totalMs = msSince(requestStartedAt);
     console.info("Line art generation completed", {
       requestId,
+      providerInput,
       imageCount: immediateImageUrls.length,
       timings
     });
-    res.json({ imageUrls: immediateImageUrls, cached: false, persistence: "pending", timings });
+    res.json({ imageUrls: immediateImageUrls, cached: false, persistence: "pending", providerInput, timings });
 
     const persistenceStartedAt = Date.now();
     persistGeneratedImageUrls(immediateImageUrls, generationCacheKey)
