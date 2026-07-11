@@ -874,6 +874,7 @@ body.line-art-fullscreen-open {
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
     }
 .fullscreen-caption {
+      margin-top: 8px;
       color: #ffffff;
       font-size: 14px;
       font-weight: 650;
@@ -905,6 +906,7 @@ body.line-art-fullscreen-open {
     }
 .fullscreen-thumbnails {
       width: min(var(--fullscreen-strip-width, 560px), 100%);
+      margin-top: 8px;
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
@@ -960,9 +962,11 @@ body.line-art-fullscreen-open {
       background: #ffffff;
     }
 .fullscreen-pick-btn {
+      position: relative;
+      overflow: hidden;
       min-width: 240px;
       min-height: 50px;
-      margin-top: 10px;
+      margin-top: 24px;
       padding: 0 26px;
       border: 1px solid #dc2626;
       border-radius: 8px;
@@ -973,8 +977,18 @@ body.line-art-fullscreen-open {
       font-weight: 750;
       cursor: pointer;
       box-shadow: 0 12px 30px rgba(220, 38, 38, 0.36);
-      animation: fullscreenPickPulse 2.4s ease-in-out infinite;
+      animation: fullscreenPickPulse 1.7s ease-in-out infinite;
       transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    }
+.fullscreen-pick-btn::before {
+      content: "";
+      position: absolute;
+      inset: -2px auto -2px -45%;
+      width: 38%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+      transform: skewX(-18deg);
+      animation: fullscreenPickShine 2.1s ease-in-out infinite;
+      pointer-events: none;
     }
 .fullscreen-pick-btn.hidden {
       display: none;
@@ -1067,10 +1081,18 @@ body.line-art-fullscreen-open {
     }
     @keyframes fullscreenPickPulse {
       0%, 100% {
-        box-shadow: 0 12px 30px rgba(220, 38, 38, 0.34);
+        box-shadow: 0 12px 30px rgba(220, 38, 38, 0.38), 0 0 0 0 rgba(220, 38, 38, 0.42);
       }
       50% {
-        box-shadow: 0 18px 44px rgba(220, 38, 38, 0.52);
+        box-shadow: 0 18px 48px rgba(220, 38, 38, 0.62), 0 0 0 8px rgba(220, 38, 38, 0.12);
+      }
+    }
+    @keyframes fullscreenPickShine {
+      0%, 36% {
+        left: -45%;
+      }
+      58%, 100% {
+        left: 120%;
       }
     }
 .line-art-customizer-root /* Utilities */
@@ -1137,12 +1159,13 @@ body.line-art-fullscreen-open {
 .line-art-customizer-root .crop-canvas { width: 100%; }
 .fullscreen-image-shell { gap: 8px; }
 .fullscreen-image { max-height: min(54vh, calc(100vh - 250px)); }
-.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); gap: 8px; }
+.fullscreen-caption { margin-top: 6px; }
+.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); margin-top: 6px; gap: 8px; }
 .fullscreen-dots { gap: 7px; }
 .fullscreen-dot { width: 8px; height: 8px; }
 .fullscreen-thumb { padding: 4px; border-radius: 7px; }
 .fullscreen-thumb.active::after { top: 5px; right: 5px; width: 20px; height: 20px; font-size: 12px; }
-.fullscreen-pick-btn { width: min(280px, 100%); min-height: 48px; margin-top: 12px; }
+.fullscreen-pick-btn { width: min(280px, 100%); min-height: 48px; margin-top: 20px; }
     }
 .line-art-customizer-root .alert-banner {
       background: #f8fafc;
