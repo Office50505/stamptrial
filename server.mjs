@@ -69,6 +69,7 @@ app.use(cors({
 let mongoClientPromise;
 let designIndexesPromise;
 let designIndexesReady = false;
+let designOrderPriorityPromise;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -90,6 +91,8 @@ function ensureDesignIndexes(db) {
     designIndexesPromise = db.collection("designs").createIndexes([
       { key: { createdAt: -1 }, name: "designs_createdAt_desc" },
       { key: { createdAt: -1, designId: -1 }, name: "designs_createdAt_designId_desc" },
+      { key: { hasOrder: -1, createdAt: -1, designId: -1 }, name: "designs_order_priority" },
+      { key: { finalDesignUrl: 1 }, name: "designs_finalDesignUrl" },
       { key: { designId: 1 }, name: "designs_designId" }
     ]).then((result) => {
       designIndexesReady = true;
@@ -108,6 +111,29 @@ function warmDesignIndexes(db) {
   ensureDesignIndexes(db).catch((error) => {
     console.warn("Design index warmup failed", { error: error.message || String(error) });
   });
+}
+
+function ensureDesignOrderPriority(db) {
+  if (!designOrderPriorityPromise) {
+    designOrderPriorityPromise = db.collection("designs").updateMany(
+      { hasOrder: { $exists: false } },
+      [{
+        $set: {
+          hasOrder: {
+            $or: [
+              { $ne: [{ $ifNull: ["$orderName", ""] }, ""] },
+              { $ne: [{ $ifNull: ["$orderNumber", ""] }, ""] },
+              { $ne: [{ $ifNull: ["$orderId", ""] }, ""] }
+            ]
+          }
+        }
+      }]
+    ).catch((error) => {
+      designOrderPriorityPromise = null;
+      throw error;
+    });
+  }
+  return designOrderPriorityPromise;
 }
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
@@ -171,6 +197,7 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
     }
 
     const orderPayload = {
+      hasOrder: true,
       orderId: String(order.id || ""),
       orderName: order.name || (order.order_number ? `#${order.order_number}` : ""),
       orderNumber: order.order_number || "",
@@ -691,7 +718,7 @@ app.post("/api/save-design", async (req, res) => {
       { designId },
       {
         $set: design,
-        $setOnInsert: { createdAt: new Date() }
+        $setOnInsert: { createdAt: new Date(), hasOrder: false }
       },
       { upsert: true }
     );
@@ -710,7 +737,7 @@ app.get("/api/designs", async (req, res) => {
     if (req.query.cursor) {
       try {
         cursor = JSON.parse(Buffer.from(String(req.query.cursor), "base64url").toString("utf8"));
-        if (!cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) {
+        if (typeof cursor.hasOrder !== "boolean" || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) {
           throw new Error("Invalid cursor");
         }
       } catch {
@@ -721,21 +748,24 @@ app.get("/api/designs", async (req, res) => {
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    warmDesignIndexes(db);
+    await Promise.all([ensureDesignOrderPriority(db), ensureDesignIndexes(db)]);
     const query = cursor
       ? {
           $or: [
-            { createdAt: { $lt: new Date(cursor.createdAt) } },
-            { createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
+            { hasOrder: { $lt: cursor.hasOrder } },
+            { hasOrder: cursor.hasOrder, createdAt: { $lt: new Date(cursor.createdAt) } },
+            { hasOrder: cursor.hasOrder, createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
           ]
         }
       : {};
     const queryStartedAt = Date.now();
-    const results = await db.collection("designs")
+    const collection = db.collection("designs");
+    const resultsPromise = collection
       .find(query, {
         projection: {
           _id: 0,
           designId: 1,
+          hasOrder: 1,
           originalImageUrl: 1,
           chosenVariantUrl: 1,
           finalDesignUrl: 1,
@@ -749,15 +779,29 @@ app.get("/api/designs", async (req, res) => {
           createdAt: 1
         }
       })
-      .sort({ createdAt: -1, designId: -1 })
+      .sort({ hasOrder: -1, createdAt: -1, designId: -1 })
       .limit(limit + 1)
       .toArray();
+    const metricsPromise = cursor
+      ? Promise.resolve(null)
+      : Promise.all([
+          collection.countDocuments({}),
+          collection.countDocuments({ hasOrder: true }),
+          collection.countDocuments({ finalDesignUrl: { $exists: true, $nin: [null, ""] } })
+        ]).then(([total, ordered, finalReady]) => ({
+          total,
+          ordered,
+          awaiting: total - ordered,
+          finalReady
+        }));
+    const [results, metrics] = await Promise.all([resultsPromise, metricsPromise]);
 
     const hasMore = results.length > limit;
     const designs = hasMore ? results.slice(0, limit) : results;
     const lastDesign = designs[designs.length - 1];
     const nextCursor = hasMore && lastDesign?.createdAt && lastDesign?.designId
       ? Buffer.from(JSON.stringify({
+          hasOrder: Boolean(lastDesign.hasOrder),
           createdAt: new Date(lastDesign.createdAt).toISOString(),
           designId: lastDesign.designId
         })).toString("base64url")
@@ -774,7 +818,7 @@ app.get("/api/designs", async (req, res) => {
       timings
     });
 
-    res.json({ designs, nextCursor, timings });
+    res.json({ designs, nextCursor, metrics, timings });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not load designs" });

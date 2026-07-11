@@ -772,6 +772,7 @@
     };
 
     let designs = [];
+    let totalMetrics = null;
     let activeCategory = "ordered";
     let nextCursor = null;
     let isLoading = false;
@@ -957,7 +958,7 @@
 
     function render() {
       const query = document.getElementById("search").value.trim().toLowerCase();
-      const metrics = getMetrics();
+      const metrics = totalMetrics || getMetrics();
       renderMetrics(metrics);
       renderCategoryTabs(metrics);
 
@@ -1133,6 +1134,7 @@
         const page = Array.isArray(data.designs) ? data.designs : [];
         designs = reset ? page : [...designs, ...page];
         nextCursor = data.nextCursor || null;
+        if (data.metrics) totalMetrics = data.metrics;
         console.info("[dashboard] designs page loaded", {
           pageCount: page.length,
           loadedCount: designs.length,
