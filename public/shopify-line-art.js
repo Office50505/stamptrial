@@ -236,7 +236,7 @@
 
     function syncCartProperties() {
       ensureCartPropertyInputs();
-      setCartProperty("_Design Preview", finalDesignImageUrl || getSelectedVariantPreviewUrl());
+      setCartProperty("_Design Preview", finalDesignImageUrl);
       setCartProperty("_Design ID", savedDesignId);
       setCartProperty("Reference ID", savedDesignId);
       setCartProperty("Stamp Color", currentInkColor);
