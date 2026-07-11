@@ -561,6 +561,7 @@ app.post("/api/save-design", async (req, res) => {
       originalImageDataUrl,
       chosenVariantDataUrl,
       finalDesignDataUrl,
+      lightweight = false,
       settings = {}
     } = req.body || {};
 
@@ -574,7 +575,12 @@ app.post("/api/save-design", async (req, res) => {
       return;
     }
 
-    if (!hasOriginalImage && (!hasValidDesignId || !hasFinalDesign)) {
+    if (!hasOriginalImage && !hasFinalDesign && !lightweight) {
+      res.status(400).json({ error: "No design data was provided" });
+      return;
+    }
+
+    if (!hasOriginalImage && !lightweight && (!hasValidDesignId || !hasFinalDesign)) {
       res.status(400).json({ error: "originalImageDataUrl and chosenVariantDataUrl are required for new designs" });
       return;
     }

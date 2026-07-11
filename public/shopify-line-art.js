@@ -17,6 +17,7 @@
     let loadingProgressValue = 0;
     let generatedLineArtVariants = []; // Stores generated line art canvases
     let generatedVariantPreviews = [];
+    let generatedVariantSourceUrls = [];
     let selectedVariant = null;   // Active lineArt object chosen (width, height, imageData)
     let currentInkColor = "black";
     let selectedSize = 'xxl'; // fixed default size
@@ -27,6 +28,8 @@
     let isPreparingMockups = false;
     let cartDesignSavePromise = null;
     let selectedDesignSavePromise = null;
+    let selectedDesignSaveIndex = -1;
+    let selectedDesignAssetsSavePromise = null;
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
     let uploadStatusMessageTimer = null;
@@ -210,9 +213,31 @@
       });
     }
 
+    function getSelectedVariantPreviewUrl(index = selectedVariantIndex) {
+      return index >= 0 ? (generatedVariantSourceUrls[index] || "") : "";
+    }
+
+    function getSelectedVariantStyleName(index = selectedVariantIndex) {
+      return index >= 0 ? (generatedVariantPreviews[index]?.caption || `Style ${index + 1}`) : "";
+    }
+
+    function getDesignSettings(index = selectedVariantIndex) {
+      return {
+        sourceFileName,
+        selectedVariantIndex: index,
+        selectedStyleName: getSelectedVariantStyleName(index),
+        selectedVariantPreviewUrl: getSelectedVariantPreviewUrl(index),
+        selectedSize,
+        inkColor: currentInkColor,
+        aboveText: document.getElementById("above-text-input")?.value || "",
+        belowText: document.getElementById("below-text-input")?.value || "",
+        notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
+      };
+    }
+
     function syncCartProperties() {
       ensureCartPropertyInputs();
-      setCartProperty("_Design Preview", finalDesignImageUrl);
+      setCartProperty("_Design Preview", finalDesignImageUrl || getSelectedVariantPreviewUrl());
       setCartProperty("_Design ID", savedDesignId);
       setCartProperty("Reference ID", savedDesignId);
       setCartProperty("Stamp Color", currentInkColor);
@@ -273,14 +298,7 @@
       const payload = {
         designId: savedDesignId,
         finalDesignDataUrl,
-        settings: {
-          sourceFileName,
-          selectedSize,
-          inkColor: currentInkColor,
-          aboveText: document.getElementById("above-text-input")?.value || "",
-          belowText: document.getElementById("below-text-input")?.value || "",
-          notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
-        }
+        settings: getDesignSettings()
       };
 
       if (!savedDesignId) {
@@ -386,8 +404,7 @@
           }
 
           syncCartProperties();
-          const needsFinalPreviewSave = !finalDesignImageUrl || lastSavedCartDesignRevision !== cartDesignRevision;
-          if (savedDesignId && !needsFinalPreviewSave) {
+          if (savedDesignId) {
             return;
           }
 
@@ -403,15 +420,6 @@
             setCartSubmitLoading(form, false);
             alert("Please finish your custom line art before adding this product to cart.");
             return;
-          }
-
-          if (!finalDesignImageUrl || lastSavedCartDesignRevision !== cartDesignRevision) {
-            const previewSaved = await saveFinalDesignForCart();
-            if (!previewSaved && !finalDesignImageUrl) {
-              setCartSubmitLoading(form, false);
-              alert("Please wait a moment for your custom stamp preview to finish saving.");
-              return;
-            }
           }
 
           syncCartProperties();
@@ -565,7 +573,10 @@
       currentGenerationCacheKey = "";
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];
+      generatedVariantSourceUrls = [];
       selectedDesignSavePromise = null;
+      selectedDesignSaveIndex = -1;
+      selectedDesignAssetsSavePromise = null;
       document.getElementById("variants-container").innerHTML = "";
       syncCartProperties();
       document.getElementById("preview-filename").textContent = file.name;
@@ -1686,6 +1697,7 @@
       selectedVariantIndex = -1;
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];
+      generatedVariantSourceUrls = [];
 
       return new Promise((resolve) => {
         const img = new Image();
@@ -1735,6 +1747,7 @@
       const container = document.getElementById("variants-container");
       container.innerHTML = "";
       generatedVariantPreviews = [];
+      generatedVariantSourceUrls = urls.slice(0, 4);
 
       const variantNames = variantNameOverrides || [
         "Style 1 (Bold)",
@@ -1824,10 +1837,10 @@
 
     async function saveSelectedDesign(index) {
       if (!sourceImageDataUrl || !selectedVariant) return false;
-      if (selectedDesignSavePromise) return selectedDesignSavePromise;
+      if (selectedDesignSavePromise && selectedDesignSaveIndex === index) return selectedDesignSavePromise;
 
-      selectedDesignSavePromise = (async () => {
-        const variantCanvas = makeTransparentLineCanvas(selectedVariant, "black");
+      selectedDesignSaveIndex = index;
+      const savePromise = (async () => {
         const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
           method: "POST",
           headers: {
@@ -1835,17 +1848,8 @@
           },
           body: JSON.stringify({
             designId: savedDesignId,
-            originalImageDataUrl: sourceImageDataUrl,
-            chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
-            settings: {
-              sourceFileName,
-              selectedVariantIndex: index,
-              selectedSize,
-              inkColor: currentInkColor,
-              aboveText: document.getElementById("above-text-input")?.value || "",
-              belowText: document.getElementById("below-text-input")?.value || "",
-              notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
-            }
+            lightweight: true,
+            settings: getDesignSettings(index)
           })
         });
 
@@ -1855,19 +1859,57 @@
         }
 
         savedDesignId = data.designId || savedDesignId || "";
-        if (!finalDesignImageUrl) finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
         syncCartProperties();
+        selectedDesignAssetsSavePromise = saveSelectedDesignAssets(index).catch((error) => {
+          console.warn("Selected design asset upload skipped:", error);
+          return false;
+        });
         return Boolean(savedDesignId);
       })();
+      selectedDesignSavePromise = savePromise;
 
       try {
-        return await selectedDesignSavePromise;
+        return await savePromise;
       } catch (err) {
         console.warn("Design save skipped:", err);
         return false;
       } finally {
-        selectedDesignSavePromise = null;
+        if (selectedDesignSavePromise === savePromise) {
+          selectedDesignSavePromise = null;
+          selectedDesignSaveIndex = -1;
+        }
       }
+    }
+
+    async function saveSelectedDesignAssets(index) {
+      if (!sourceImageDataUrl || !savedDesignId || index < 0) return false;
+      const lineArt = generatedLineArtVariants[index];
+      if (!lineArt) return false;
+
+      const variantCanvas = makeTransparentLineCanvas(lineArt, "black");
+      const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          designId: savedDesignId,
+          originalImageDataUrl: sourceImageDataUrl,
+          chosenVariantDataUrl: variantCanvas.toDataURL("image/png"),
+          settings: getDesignSettings(index)
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Design asset save failed.");
+      }
+
+      if (index !== selectedVariantIndex) return false;
+      savedDesignId = data.designId || savedDesignId || "";
+      if (!finalDesignImageUrl) finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
+      syncCartProperties();
+      return true;
     }
 
     function selectInkColor(color) {
@@ -1972,7 +2014,9 @@
           throw new Error("Could not fetch or composite mockup backgrounds. Check network connection.");
         }
 
-        await saveFinalDesignForCart();
+        saveFinalDesignForCart({ silent: true }).catch((error) => {
+          console.warn("Background final design save skipped:", error);
+        });
 
     
         revealStep(4);
@@ -2072,6 +2116,8 @@
       selectedVariant = null;
       selectedVariantIndex = -1;
       selectedDesignSavePromise = null;
+      selectedDesignSaveIndex = -1;
+      selectedDesignAssetsSavePromise = null;
       currentGenerationCacheKey = "";
       clearCartDesignAutoSave();
       cartDesignRevision++;
@@ -2080,6 +2126,7 @@
       finalDesignImageUrl = "";
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];
+      generatedVariantSourceUrls = [];
       document.getElementById("btn-process-image").setAttribute("disabled", "true");
       document.getElementById("upload-preview-card").classList.add("hidden");
       document.getElementById("upload-status-text").textContent = "Drag & drop photo here";
