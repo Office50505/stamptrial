@@ -67,6 +67,7 @@ app.use(cors({
 }));
 
 let mongoClientPromise;
+let designIndexesPromise;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -81,6 +82,20 @@ function getMongoClient() {
     mongoClientPromise = new MongoClient(requiredEnv("MONGODB_URI")).connect();
   }
   return mongoClientPromise;
+}
+
+function ensureDesignIndexes(db) {
+  if (!designIndexesPromise) {
+    designIndexesPromise = db.collection("designs").createIndexes([
+      { key: { createdAt: -1 }, name: "designs_createdAt_desc" },
+      { key: { designId: 1 }, name: "designs_designId" }
+    ]).catch((error) => {
+      designIndexesPromise = null;
+      throw error;
+    });
+  }
+
+  return designIndexesPromise;
 }
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
@@ -680,6 +695,7 @@ app.get("/api/designs", async (req, res) => {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 100));
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    await ensureDesignIndexes(db);
     const designs = await db.collection("designs")
       .find({}, {
         projection: {
@@ -699,6 +715,7 @@ app.get("/api/designs", async (req, res) => {
         }
       })
       .sort({ createdAt: -1 })
+      .allowDiskUse(true)
       .limit(limit)
       .toArray();
 
