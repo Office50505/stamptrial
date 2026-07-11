@@ -721,8 +721,8 @@
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search design id, text, size">
         <select id="limit">
-          <option value="50">Latest 50</option>
-          <option value="100" selected>Latest 100</option>
+          <option value="50" selected>Latest 50</option>
+          <option value="100">Latest 100</option>
           <option value="200">Latest 200</option>
         </select>
         <button id="refresh" class="primary" type="button"><span class="refresh-label">Refresh</span></button>
@@ -1118,6 +1118,10 @@
           throw new Error(data.error || "Could not load designs.");
         }
         designs = Array.isArray(data.designs) ? data.designs : [];
+        console.info("[dashboard] designs loaded", {
+          count: designs.length,
+          timings: data.timings || null
+        });
         render();
       } catch (error) {
         designs = [];

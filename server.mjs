@@ -68,6 +68,7 @@ app.use(cors({
 
 let mongoClientPromise;
 let designIndexesPromise;
+let designIndexesReady = false;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -89,13 +90,23 @@ function ensureDesignIndexes(db) {
     designIndexesPromise = db.collection("designs").createIndexes([
       { key: { createdAt: -1 }, name: "designs_createdAt_desc" },
       { key: { designId: 1 }, name: "designs_designId" }
-    ]).catch((error) => {
+    ]).then((result) => {
+      designIndexesReady = true;
+      return result;
+    }).catch((error) => {
       designIndexesPromise = null;
+      designIndexesReady = false;
       throw error;
     });
   }
 
   return designIndexesPromise;
+}
+
+function warmDesignIndexes(db) {
+  ensureDesignIndexes(db).catch((error) => {
+    console.warn("Design index warmup failed", { error: error.message || String(error) });
+  });
 }
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
@@ -691,11 +702,13 @@ app.post("/api/save-design", async (req, res) => {
 });
 
 app.get("/api/designs", async (req, res) => {
+  const startedAt = Date.now();
   try {
-    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 100));
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    await ensureDesignIndexes(db);
+    warmDesignIndexes(db);
+    const queryStartedAt = Date.now();
     const designs = await db.collection("designs")
       .find({}, {
         projection: {
@@ -719,7 +732,19 @@ app.get("/api/designs", async (req, res) => {
       .limit(limit)
       .toArray();
 
-    res.json({ designs });
+    const timings = {
+      queryMs: msSince(queryStartedAt),
+      totalMs: msSince(startedAt),
+      indexReady: designIndexesReady
+    };
+
+    console.info("Dashboard designs loaded", {
+      count: designs.length,
+      limit,
+      timings
+    });
+
+    res.json({ designs, timings });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not load designs" });
@@ -786,4 +811,12 @@ app.use((error, req, res, _next) => {
 
 app.listen(port, () => {
   console.log(`Line art backend running on port ${port}`);
+  getMongoClient()
+    .then((client) => {
+      const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+      warmDesignIndexes(db);
+    })
+    .catch((error) => {
+      console.warn("Design index startup warmup skipped", { error: error.message || String(error) });
+    });
 });
