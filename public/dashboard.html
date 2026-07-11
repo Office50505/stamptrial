@@ -760,6 +760,7 @@
     <div class="category-tabs" id="category-tabs" aria-label="Design categories"></div>
     <div class="summary" id="summary">Loading designs...</div>
     <div id="content" class="status">Loading...</div>
+    <div id="load-more" class="status" hidden></div>
   </main>
 
   <script>
@@ -772,6 +773,8 @@
 
     let designs = [];
     let activeCategory = "ordered";
+    let nextCursor = null;
+    let isLoading = false;
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -1099,41 +1102,73 @@
       });
     }
 
-    async function loadDesigns() {
+    async function loadDesigns({ reset = false } = {}) {
+      if (isLoading || (!reset && !nextCursor && designs.length)) return;
+
       const content = document.getElementById("content");
       const refreshButton = document.getElementById("refresh");
+      const loadMore = document.getElementById("load-more");
+      isLoading = true;
       refreshButton.disabled = true;
       refreshButton.classList.add("is-loading");
-      refreshButton.querySelector(".refresh-label").textContent = "Refreshing";
-      content.className = "grid";
-      content.innerHTML = renderLoadingSkeleton();
-      document.getElementById("summary").textContent = "Loading designs...";
+      refreshButton.querySelector(".refresh-label").textContent = reset ? "Refreshing" : "Loading";
+      loadMore.hidden = false;
+      loadMore.textContent = "Loading more designs...";
+
+      if (reset || !designs.length) {
+        designs = [];
+        nextCursor = null;
+        content.className = "grid";
+        content.innerHTML = renderLoadingSkeleton();
+        document.getElementById("summary").textContent = "Loading designs...";
+      }
 
       try {
-        const response = await fetch("/api/designs");
+        const params = new URLSearchParams({ limit: "25" });
+        if (!reset && nextCursor) params.set("cursor", nextCursor);
+        const response = await fetch(`/api/designs?${params}`);
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || "Could not load designs.");
-        }
-        designs = Array.isArray(data.designs) ? data.designs : [];
-        console.info("[dashboard] designs loaded", {
-          count: designs.length,
+        if (!response.ok) throw new Error(data.error || "Could not load designs.");
+
+        const page = Array.isArray(data.designs) ? data.designs : [];
+        designs = reset ? page : [...designs, ...page];
+        nextCursor = data.nextCursor || null;
+        console.info("[dashboard] designs page loaded", {
+          pageCount: page.length,
+          loadedCount: designs.length,
+          hasMore: Boolean(nextCursor),
           timings: data.timings || null
         });
         render();
+        loadMore.hidden = !nextCursor;
+        loadMore.textContent = nextCursor ? "Scroll to load more designs" : "";
       } catch (error) {
-        designs = [];
-        document.getElementById("summary").textContent = "Dashboard error";
-        content.className = "status";
-        content.innerHTML = emptyState("Could not load designs", error.message);
+        if (!designs.length) {
+          document.getElementById("summary").textContent = "Dashboard error";
+          content.className = "status";
+          content.innerHTML = emptyState("Could not load designs", error.message);
+          loadMore.hidden = true;
+        } else {
+          loadMore.hidden = false;
+          loadMore.textContent = `Could not load more designs: ${error.message}`;
+        }
       } finally {
+        isLoading = false;
         refreshButton.disabled = false;
         refreshButton.classList.remove("is-loading");
         refreshButton.querySelector(".refresh-label").textContent = "Refresh";
       }
     }
 
-    document.getElementById("refresh").addEventListener("click", loadDesigns);
+    const loadMoreObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting) && nextCursor && !isLoading) {
+        loadDesigns();
+      }
+    }, { rootMargin: "500px 0px" });
+
+    loadMoreObserver.observe(document.getElementById("load-more"));
+
+    document.getElementById("refresh").addEventListener("click", () => loadDesigns({ reset: true }));
     document.getElementById("search").addEventListener("input", render);
     document.getElementById("category-tabs").addEventListener("click", (event) => {
       const button = event.target.closest("[data-category]");
@@ -1141,7 +1176,7 @@
       activeCategory = button.dataset.category || "ordered";
       render();
     });
-    loadDesigns();
+    loadDesigns({ reset: true });
   </script>
 </body>
 </html>

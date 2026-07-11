@@ -89,6 +89,7 @@ function ensureDesignIndexes(db) {
   if (!designIndexesPromise) {
     designIndexesPromise = db.collection("designs").createIndexes([
       { key: { createdAt: -1 }, name: "designs_createdAt_desc" },
+      { key: { createdAt: -1, designId: -1 }, name: "designs_createdAt_designId_desc" },
       { key: { designId: 1 }, name: "designs_designId" }
     ]).then((result) => {
       designIndexesReady = true;
@@ -704,12 +705,34 @@ app.post("/api/save-design", async (req, res) => {
 app.get("/api/designs", async (req, res) => {
   const startedAt = Date.now();
   try {
+    const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 25));
+    let cursor = null;
+    if (req.query.cursor) {
+      try {
+        cursor = JSON.parse(Buffer.from(String(req.query.cursor), "base64url").toString("utf8"));
+        if (!cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) {
+          throw new Error("Invalid cursor");
+        }
+      } catch {
+        res.status(400).json({ error: "Invalid pagination cursor" });
+        return;
+      }
+    }
+
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     warmDesignIndexes(db);
+    const query = cursor
+      ? {
+          $or: [
+            { createdAt: { $lt: new Date(cursor.createdAt) } },
+            { createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
+          ]
+        }
+      : {};
     const queryStartedAt = Date.now();
-    const designs = await db.collection("designs")
-      .find({}, {
+    const results = await db.collection("designs")
+      .find(query, {
         projection: {
           _id: 0,
           designId: 1,
@@ -726,10 +749,19 @@ app.get("/api/designs", async (req, res) => {
           createdAt: 1
         }
       })
-      .sort({ createdAt: -1 })
-      .allowDiskUse(true)
+      .sort({ createdAt: -1, designId: -1 })
+      .limit(limit + 1)
       .toArray();
 
+    const hasMore = results.length > limit;
+    const designs = hasMore ? results.slice(0, limit) : results;
+    const lastDesign = designs[designs.length - 1];
+    const nextCursor = hasMore && lastDesign?.createdAt && lastDesign?.designId
+      ? Buffer.from(JSON.stringify({
+          createdAt: new Date(lastDesign.createdAt).toISOString(),
+          designId: lastDesign.designId
+        })).toString("base64url")
+      : null;
     const timings = {
       queryMs: msSince(queryStartedAt),
       totalMs: msSince(startedAt),
@@ -738,10 +770,11 @@ app.get("/api/designs", async (req, res) => {
 
     console.info("Dashboard designs loaded", {
       count: designs.length,
+      hasMore,
       timings
     });
 
-    res.json({ designs, timings });
+    res.json({ designs, nextCursor, timings });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not load designs" });
