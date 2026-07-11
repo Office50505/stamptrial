@@ -1349,7 +1349,7 @@
       } else {
         drawWholeImageToCanvas(canvas, processingSize);
       }
-      return canvas.toDataURL("image/jpeg", 0.86);
+      return canvas.toDataURL("image/jpeg", 0.8);
     }
 
     function updateProgressUI(scope, progress, text) {

@@ -378,97 +378,27 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-const LINE_ART_PROMPT = `Convert the uploaded reference image into bold black vector-style logo line art on a pure white background.
-The target result should feel like a clean emblem/icon conversion: crisp smooth black vector contours, clean white negative space, and a polished manually traced logo look.
-Use the uploaded image as the source of truth for the subject, pose, silhouette, proportions, and layout.
-STYLE TARGET
+const LINE_ART_PROMPT = `Convert the uploaded reference image into bold black vector-style logo line art on a pure white background — a clean emblem/icon conversion with crisp, smooth, manually-traced-looking contours. Use the uploaded image as the source of truth for subject, pose, silhouette, proportions, and layout.
+ 
+STYLE
+Bold black outlines on a pure white background. High-contrast black and white only — no gray, no color. Smooth vector-quality curves and straight segments matching the source's actual geometry (smooth where curved, sharp corners only where the source has real corners). Strokes must be crisp and hard-edged: no blur, feathering, fuzz, or low-resolution edges. White-dominant result — black appears as strokes/details, not as filled background. Clean enclosed white negative space between lines. No sketch, pencil, brush, watercolor, or halftone texture; no rough hand-drawn wobble; no thin fragile lines; no low-detail cartoon look; no inverted look or mostly-black badge.
+ 
+TRANSFORMATION
+Convert visible subject edges, key internal edges, and major shadows into clean black vector paths. Keep essential filled-black areas only where needed for readability (eyes, eyebrows, lips, deep shadows, dark graphic details); keep other areas white. Use thick strokes for contours rather than solid fills. Remove photographic texture, gradients, skin tones, color, noise, soft lighting, and background clutter. If the source is already a logo/graphic, preserve its geometry and just clean up the edges. If the source is a photo, simplify only enough to produce a clean line-art version while keeping the likeness and geometry intact.
+ 
+IDENTITY LOCK (non-negotiable)
+The output must be immediately recognizable as the exact same subject — same core elements, count, position, structure, proportions, symmetry, spacing, and negative space as the source. Do not alter, remove, merge, duplicate, reposition, reinterpret, or oversimplify any distinguishing feature (facial features, object parts, marks, accessories, defining shapes). When unsure if a detail is "core," preserve it.
+ 
+SMALL MARKS (critical)
+Any ™, ®, ©, monogram, tiny text, or small secondary mark in the source must appear in the output, in the same position and scale, in clean vector line form. Before finalizing, scan the full source edge-to-edge (including corners/periphery) and confirm every mark is reproduced — never drop or shrink one into illegibility for being small.
+ 
+DO NOT
+Do not produce a realistic portrait, shaded sketch, pencil drawing, or generic clipart. Do not fill a black disk/square behind the subject or turn white space into black masses. Do not invent ornaments, backgrounds, frames, or decorative scenery. Do not add text, letters, TM marks, logos, or watermarks not present in the source. Do not copy outside brand artwork unless the source itself is that artwork. Do not change any core feature of the original subject.
+ 
+Result should look like a bold black-and-white vector logo outline, print/engrave-ready, with the exact identity, core elements, and any small marks (™/®/©) of the original preserved.
 
-Bold black outline art.
-Pure white background.
-High-contrast black and white only.
-Sharp, clean vector-quality strokes.
-Thick confident contour lines similar to classic logo line art, built from smooth controlled vector curves and straight segments where appropriate.
-White-dominant result: black should appear as strokes/details, not as a filled black background.
-Smooth, crisp curves where the source is curved; sharp, hard corners only where the source actually has corners.
-Crisp, hard-edged strokes with no fuzzy, blurry, or feathered edges.
-Clean enclosed white negative spaces between black lines.
-Simple, readable, premium emblem-style result with a precise, clean vector-logo look.
-
-TRANSFORMATION RULES
-
-Convert visible subject edges, important internal edges, and major shadows into clean black vector paths with smooth contours and crisp hard edges.
-Keep essential filled black areas when they make features readable, such as eyes, eyebrows, lips, deep shadows, or dark graphic details.
-Keep the interior mostly white wherever the source has open or light areas.
-Use thick black strokes with hard, defined edges for borders and contours instead of filling large regions solid black.
-Remove photographic texture, gradients, skin tones, color, noise, soft lighting, and background clutter.
-If the uploaded source already contains a graphic/logo, preserve its geometry closely and make the edges cleaner and more vector-crisp.
-If the uploaded source is a photo, simplify only enough to create a clean sharp-edged logo-style line-art version while keeping the likeness and main geometry.
-
-PRESERVE
-
-Overall composition.
-Subject placement.
-Main silhouette.
-Proportions.
-Symmetry/asymmetry from the source.
-Important facial or product features.
-Hair, clothing, object, or ornament flow when visible (rendered as clean smooth vector curves with crisp hard-edged strokes).
-Spacing between major elements.
-Internal negative space.
-Line direction and natural contour rhythm.
-Visual balance.
-
-STRICT IDENTITY LOCK (NON-NEGOTIABLE)
-
-The key features and core elements of the uploaded image must remain fully recognizable and unchanged in identity, count, position, and structure.
-Do not alter, remove, merge, duplicate, reposition, or reinterpret any core subject element (e.g., facial features, object parts, distinguishing marks, accessories, or defining shapes present in the source).
-Do not simplify away any feature to the point that the subject's specific identity or distinguishing characteristics are lost.
-The line-art conversion must read as the same exact subject as the source image, not a generic or reimagined version of it.
-If uncertain whether a detail counts as "core," default to preserving it rather than omitting it.
-
-SMALL MARK PRESERVATION (CRITICAL)
-
-If the uploaded source contains any trademark (™), registered (®), copyright (©) symbol, monogram, small text, or tiny secondary mark, it MUST be reproduced in the output in the same position, scale, and style-consistent crisp vector line form.
-Do not drop, shrink into illegibility, or omit small marks/symbols just because they are tiny relative to the main subject.
-Treat every small mark exactly like a core element — its absence is a failed conversion, not an acceptable simplification.
-Before finalizing, scan the full source image edge-to-edge (including corners and periphery) for any symbol, initials, or mark, and confirm each one is present in the output.
-
-LINE QUALITY
-
-Clean smooth vector contours with hard, crisp edges.
-Solid black strokes and fills only.
-No gray.
-No color.
-No sketch effect.
-No pencil texture.
-No brush texture.
-No watercolor.
-No halftone.
-No rough hand-drawn wobble.
-No thin fragile lines.
-No low-detail cartoon look.
-No inverted look.
-No mostly black badge.
-No fuzzy, blurry, feathered, or low-resolution edges.
-
-STRICT NEGATIVE CONSTRAINTS
-
-Do not make a realistic portrait.
-Do not output a shaded sketch.
-Do not output a pencil drawing.
-Do not output a generic clipart version.
-Do not create a black filled disk or black filled square behind the subject.
-Do not turn white negative spaces into black masses.
-Do not invent unrelated ornaments.
-Do not add text, letters, TM marks, logos, or watermarks unless they are clearly present in the uploaded image.
-Do not omit any trademark, registered, copyright, or small secondary mark that is present in the uploaded source.
-Do not copy any brand artwork unless the uploaded image itself is that artwork.
-Do not add backgrounds, frames, or decorative scenery.
-Do not change, remove, or reinterpret any key feature or core element of the original subject.
-Do not blur, feather, or fuzz any edge; curves should be smooth and logo-clean, and true corners should remain crisp.
-
-TARGET RESULT
-The final image should look like the uploaded reference was converted into a bold black-and-white vector logo outline with crisp smooth contours, hard clean stroke edges, and selective solid black feature shapes on white, ready for printing or engraving — while preserving the exact identity, core elements, and any small marks (TM/®/©) of the original subject.`;
+If the source contains readable words or lettering, preserve the exact spelling, letter count, placement, and hierarchy.
+ `;
 
 app.post("/api/generate-line-art", async (req, res) => {
   try {
