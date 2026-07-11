@@ -863,10 +863,12 @@
         <button class="fullscreen-close-btn" type="button" aria-label="Close preview">Close</button>
         <div class="fullscreen-image-shell">
           <img class="fullscreen-image" alt="">
-          <div class="fullscreen-caption"></div>
-          <div class="fullscreen-dots hidden" aria-label="Style position"></div>
-          <div class="fullscreen-thumbnails" aria-label="Generated styles"></div>
-          <button class="fullscreen-pick-btn hidden" type="button">Pick this style</button>
+          <div class="fullscreen-controls-stack">
+            <div class="fullscreen-caption"></div>
+            <div class="fullscreen-dots hidden" aria-label="Style position"></div>
+            <div class="fullscreen-thumbnails" aria-label="Generated styles"></div>
+            <button class="fullscreen-pick-btn hidden" type="button">Pick this style</button>
+          </div>
         </div>
       `;
 

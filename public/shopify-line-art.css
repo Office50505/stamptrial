@@ -859,8 +859,8 @@ body.line-art-fullscreen-open {
       --fullscreen-strip-width: min(560px, 100%);
       padding-bottom: 18px;
       display: grid;
-      grid-template-rows: auto auto auto auto auto;
-      gap: 12px;
+      grid-template-rows: auto auto;
+      gap: 0;
       justify-items: center;
       align-items: center;
       align-content: center;
@@ -874,8 +874,14 @@ body.line-art-fullscreen-open {
       border-radius: 8px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
     }
-.fullscreen-caption {
+.fullscreen-controls-stack {
+      width: min(700px, 100%);
       margin-top: 26px;
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+    }
+.fullscreen-caption {
       color: #ffffff;
       font-size: 14px;
       font-weight: 650;
@@ -907,7 +913,6 @@ body.line-art-fullscreen-open {
     }
 .fullscreen-thumbnails {
       width: min(var(--fullscreen-strip-width, 560px), 100%);
-      margin-top: 12px;
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
@@ -967,7 +972,7 @@ body.line-art-fullscreen-open {
       overflow: hidden;
       min-width: 280px;
       min-height: 56px;
-      margin-top: 24px;
+      margin-top: 10px;
       padding: 0 34px;
       border: 2px solid #ef4444;
       border-radius: 8px;
@@ -1159,15 +1164,15 @@ body.line-art-fullscreen-open {
 .line-art-customizer-root .button-row { flex-direction: column-reverse; gap: 10px; margin-top: 20px; }
 .line-art-customizer-root .preview-card img { max-height: 160px; }
 .line-art-customizer-root .crop-canvas { width: 100%; }
-.fullscreen-image-shell { gap: 8px; padding-bottom: 16px; }
+.fullscreen-image-shell { gap: 0; padding-bottom: 16px; }
 .fullscreen-image { max-height: min(54vh, calc(100vh - 250px)); }
-.fullscreen-caption { margin-top: 22px; }
-.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); margin-top: 10px; gap: 8px; }
+.fullscreen-controls-stack { margin-top: 24px; gap: 10px; }
+.fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); gap: 8px; }
 .fullscreen-dots { gap: 7px; }
 .fullscreen-dot { width: 8px; height: 8px; }
 .fullscreen-thumb { padding: 4px; border-radius: 7px; }
 .fullscreen-thumb.active::after { top: 5px; right: 5px; width: 20px; height: 20px; font-size: 12px; }
-.fullscreen-pick-btn { width: min(320px, 100%); min-height: 54px; margin-top: 22px; font-size: 16px; }
+.fullscreen-pick-btn { width: min(320px, 100%); min-height: 54px; margin-top: 12px; font-size: 16px; }
     }
 .line-art-customizer-root .alert-banner {
       background: #f8fafc;
