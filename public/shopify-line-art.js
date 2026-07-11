@@ -722,7 +722,7 @@
       const uploadButton = document.querySelector("#drop-zone .btn-secondary");
       if (!uploadButton) return;
 
-      uploadButton.innerHTML = '<span class="upload-picture-label">Upload Picture</span>';
+      uploadButton.innerHTML = '<span class="upload-picture-label">Upload your logo</span>';
       uploadButton.classList.add("upload-picture-btn");
       uploadButton.style.setProperty("--upload-progress", "0%");
       document.querySelectorAll("#drop-zone .upload-required-marker").forEach((marker) => marker.remove());
@@ -741,7 +741,7 @@
 
       if (!isLoading) {
         stopUploadStatusMessages();
-        label.textContent = "Upload Picture";
+        label.textContent = "Upload your logo";
         return;
       }
 
@@ -1734,7 +1734,12 @@
       container.innerHTML = "";
       generatedVariantPreviews = [];
 
-      const variantNames = variantNameOverrides || ["Style 1", "Style 2", "Style 3", "Style 4"];
+      const variantNames = variantNameOverrides || [
+        "Style 1 (Bold)",
+        "Style 2 (Detailed)",
+        "Style 3 (Clean)",
+        "Style 4 (Original Match)"
+      ];
       const loadedImages = await Promise.all(urls.map((url, index) =>
         loadImageUrl(url).then((img) => {
           setGenerationLoading(true, 70 + Math.round(((index + 1) / urls.length) * 12));
