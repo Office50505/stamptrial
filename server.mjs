@@ -104,14 +104,30 @@ function requiredEnv(name) {
 }
 
 function getMongoClient() {
-  if (!mongoClientPromise) {
-    mongoClientPromise = new MongoClient(requiredEnv("MONGODB_URI"), {
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-      maxPoolSize: 10
-    }).connect();
-  }
-  return mongoClientPromise;
+  if (mongoClientPromise) return mongoClientPromise;
+
+  const client = new MongoClient(requiredEnv("MONGODB_URI"), {
+    serverSelectionTimeoutMS: 8000,
+    connectTimeoutMS: 8000,
+    maxPoolSize: 10
+  });
+  let timeout;
+  const connectionAttempt = Promise.race([
+    client.connect(),
+    new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error("MongoDB connection timed out after 8 seconds")), 8000);
+    })
+  ]).then(() => client);
+
+  const sharedAttempt = connectionAttempt
+    .catch(async (error) => {
+      if (mongoClientPromise === sharedAttempt) mongoClientPromise = undefined;
+      void client.close().catch(() => {});
+      throw error;
+    })
+    .finally(() => clearTimeout(timeout));
+  mongoClientPromise = sharedAttempt;
+  return sharedAttempt;
 }
 
 function ensureDesignIndexes(db) {
