@@ -109,6 +109,8 @@ function getMongoClient() {
   const client = new MongoClient(requiredEnv("MONGODB_URI"), {
     serverSelectionTimeoutMS: 8000,
     connectTimeoutMS: 8000,
+    waitQueueTimeoutMS: 5000,
+    socketTimeoutMS: 10000,
     maxPoolSize: 10
   });
   let timeout;
@@ -1021,6 +1023,7 @@ app.get("/api/designs", async (req, res) => {
     const mongoStartedAt = Date.now();
     const client = await getMongoClient();
     const mongoMs = msSince(mongoStartedAt);
+    console.log("Dashboard Mongo acquired", { requestId, mongoMs });
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const baseQuery = buildDashboardFilter(req.query);
     const cursorQuery = cursor ? { $or: [
@@ -1030,12 +1033,20 @@ app.get("/api/designs", async (req, res) => {
     ] } : null;
     const query = cursorQuery ? (Object.keys(baseQuery).length ? { $and: [baseQuery, cursorQuery] } : cursorQuery) : baseQuery;
     const queryStartedAt = Date.now();
-    const results = await db.collection("designs").find(query, { projection: {
+    console.log("Dashboard designs query executing", { requestId });
+    const designsQuery = db.collection("designs").find(query, { projection: {
       _id: 0, designId: 1, hasOrder: 1, workflowStatus: 1,
       originalImageUrl: 1, chosenVariantUrl: 1, finalDesignUrl: 1,
       settings: 1, orderId: 1, orderName: 1, orderNumber: 1,
       orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
     }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 }).limit(limit + 1).maxTimeMS(8000).toArray();
+    let queryTimeout;
+    const results = await Promise.race([
+      designsQuery,
+      new Promise((_, reject) => {
+        queryTimeout = setTimeout(() => reject(new Error("Dashboard MongoDB query timed out after 9 seconds")), 9000);
+      })
+    ]).finally(() => clearTimeout(queryTimeout));
 
     const hasMore = results.length > limit;
     const designs = hasMore ? results.slice(0, limit) : results;
