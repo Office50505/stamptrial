@@ -935,7 +935,6 @@ app.get("/api/dashboard-events", (req, res) => {
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
   res.write("retry: 5000\n\n");
