@@ -950,7 +950,8 @@ app.get("/api/design-metrics", async (_req, res) => {
     }
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    await Promise.all([ensureDesignOrderPriority(db), ensureDesignIndexes(db)]);
+    warmDesignIndexes(db);
+    ensureDesignOrderPriority(db).catch((error) => console.warn("Design priority warmup failed", { error: error.message }));
     const collection = db.collection("designs");
     const [total, ordered, finalReady, needsAttention] = await Promise.all([
       collection.countDocuments({}),
@@ -971,7 +972,7 @@ app.get("/api/design-count", async (req, res) => {
   try {
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    await ensureDesignOrderPriority(db);
+    ensureDesignOrderPriority(db).catch((error) => console.warn("Design priority warmup failed", { error: error.message }));
     res.json({ count: await db.collection("designs").countDocuments(buildDashboardFilter(req.query)) });
   } catch (error) {
     console.error(error);
@@ -995,7 +996,8 @@ app.get("/api/designs", async (req, res) => {
     }
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    await Promise.all([ensureDesignOrderPriority(db), ensureDesignIndexes(db)]);
+    warmDesignIndexes(db);
+    ensureDesignOrderPriority(db).catch((error) => console.warn("Design priority warmup failed", { error: error.message }));
     const baseQuery = buildDashboardFilter(req.query);
     const cursorQuery = cursor ? { $or: [
       { hasOrder: { $lt: cursor.hasOrder } },
@@ -1111,6 +1113,9 @@ app.listen(port, () => {
     .then((client) => {
       const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
       warmDesignIndexes(db);
+      ensureDesignOrderPriority(db).catch((error) => {
+        console.warn("Design priority startup warmup failed", { error: error.message || String(error) });
+      });
     })
     .catch((error) => {
       console.warn("Design index startup warmup skipped", { error: error.message || String(error) });
