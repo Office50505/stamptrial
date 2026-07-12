@@ -105,7 +105,11 @@ function requiredEnv(name) {
 
 function getMongoClient() {
   if (!mongoClientPromise) {
-    mongoClientPromise = new MongoClient(requiredEnv("MONGODB_URI")).connect();
+    mongoClientPromise = new MongoClient(requiredEnv("MONGODB_URI"), {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10
+    }).connect();
   }
   return mongoClientPromise;
 }
@@ -950,8 +954,6 @@ app.get("/api/design-metrics", async (_req, res) => {
     }
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    warmDesignIndexes(db);
-    ensureDesignOrderPriority(db).catch((error) => console.warn("Design priority warmup failed", { error: error.message }));
     const collection = db.collection("designs");
     const [total, ordered, finalReady, needsAttention] = await Promise.all([
       collection.countDocuments({}),
@@ -972,8 +974,7 @@ app.get("/api/design-count", async (req, res) => {
   try {
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    ensureDesignOrderPriority(db).catch((error) => console.warn("Design priority warmup failed", { error: error.message }));
-    res.json({ count: await db.collection("designs").countDocuments(buildDashboardFilter(req.query)) });
+    res.json({ count: await db.collection("designs").countDocuments(buildDashboardFilter(req.query), { maxTimeMS: 8000 }) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not count designs" });
@@ -996,8 +997,6 @@ app.get("/api/designs", async (req, res) => {
     }
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    warmDesignIndexes(db);
-    ensureDesignOrderPriority(db).catch((error) => console.warn("Design priority warmup failed", { error: error.message }));
     const baseQuery = buildDashboardFilter(req.query);
     const cursorQuery = cursor ? { $or: [
       { hasOrder: { $lt: cursor.hasOrder } },
@@ -1011,7 +1010,7 @@ app.get("/api/designs", async (req, res) => {
       originalImageUrl: 1, chosenVariantUrl: 1, finalDesignUrl: 1,
       settings: 1, orderId: 1, orderName: 1, orderNumber: 1,
       orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
-    }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 }).limit(limit + 1).toArray();
+    }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 }).limit(limit + 1).maxTimeMS(8000).toArray();
 
     const hasMore = results.length > limit;
     const designs = hasMore ? results.slice(0, limit) : results;
@@ -1110,12 +1109,8 @@ app.use((error, req, res, _next) => {
 app.listen(port, () => {
   console.log(`Line art backend running on port ${port}`);
   getMongoClient()
-    .then((client) => {
-      const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-      warmDesignIndexes(db);
-      ensureDesignOrderPriority(db).catch((error) => {
-        console.warn("Design priority startup warmup failed", { error: error.message || String(error) });
-      });
+    .then(() => {
+      console.info("MongoDB connected");
     })
     .catch((error) => {
       console.warn("Design index startup warmup skipped", { error: error.message || String(error) });
