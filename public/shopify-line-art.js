@@ -27,8 +27,6 @@
     let isSavingCartDesign = false;
     let isPreparingMockups = false;
     let cartDesignSavePromise = null;
-    let selectedDesignSavePromise = null;
-    let selectedDesignSaveIndex = -1;
     let selectedDesignAssetsSavePromise = null;
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
@@ -274,13 +272,19 @@
       };
     }
 
-    function getSavedDesignPreviewUrl() {
-      return savedDesignId ? `${BACKEND_BASE_URL}/api/design-preview/${encodeURIComponent(savedDesignId)}` : "";
+    function createLocalDesignId() {
+      if (window.crypto?.randomUUID) return `des_${window.crypto.randomUUID()}`;
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+      return `des_${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
 
     function syncCartProperties() {
       ensureCartPropertyInputs();
-      setCartProperty("_Design Preview", finalDesignImageUrl || getSavedDesignPreviewUrl());
+      setCartProperty("_Design Preview", finalDesignImageUrl);
       setCartProperty("_Design ID", savedDesignId);
       setCartProperty("Reference ID", savedDesignId);
       setCartProperty("Stamp Color", currentInkColor);
@@ -392,7 +396,6 @@
 
     async function saveFinalDesignForCart({ silent = false } = {}) {
       if (!sourceImageDataUrl || !selectedVariant) return false;
-      if (!savedDesignId && selectedDesignSavePromise) await selectedDesignSavePromise;
       if (finalDesignImageUrl && lastSavedCartDesignRevision === cartDesignRevision) return true;
       if (cartDesignSavePromise) return cartDesignSavePromise;
 
@@ -428,35 +431,6 @@
     function getCartSubmitButton(form) {
       return form.querySelector('button[type="submit"], input[type="submit"], button[name="add"], [name="add"]');
     }
-    function setCartDesignReady(isReady) {
-      getShopifyProductForms().forEach((form) => {
-        const button = getCartSubmitButton(form);
-        if (!button) return;
-        if (!isReady) {
-          if (button.dataset.lineArtDesignLocked !== "true") {
-            button.dataset.lineArtDesignLocked = "true";
-            button.dataset.lineArtWasDisabled = String(button.disabled);
-            if (button.tagName === "INPUT") {
-              button.dataset.lineArtReadyValue = button.value;
-              button.value = "Preparing design…";
-            } else {
-              button.dataset.lineArtReadyHtml = button.innerHTML;
-              button.textContent = "Preparing design…";
-            }
-          }
-          button.disabled = true;
-          button.setAttribute("aria-busy", "true");
-          return;
-        }
-        if (button.dataset.lineArtDesignLocked !== "true") return;
-        button.disabled = button.dataset.lineArtWasDisabled === "true";
-        button.removeAttribute("aria-busy");
-        if (button.tagName === "INPUT") button.value = button.dataset.lineArtReadyValue || button.value;
-        else button.innerHTML = button.dataset.lineArtReadyHtml || button.innerHTML;
-        delete button.dataset.lineArtDesignLocked;
-      });
-    }
-
     function setCartSubmitLoading(form, isLoading, label = "Adding to cart...") {
       const button = getCartSubmitButton(form);
       if (!button) return;
@@ -645,8 +619,6 @@
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];
       generatedVariantSourceUrls = [];
-      selectedDesignSavePromise = null;
-      selectedDesignSaveIndex = -1;
       selectedDesignAssetsSavePromise = null;
       document.getElementById("variants-container").innerHTML = "";
       syncCartProperties();
@@ -1957,9 +1929,18 @@
     function selectVariant(index) {
       selectedVariantIndex = index;
       selectedVariant = generatedLineArtVariants[index];
-      setCartDesignReady(false);
-      setDesignSaveStatus("saving", "Securing your design…");
-      saveSelectedDesign(index);
+      if (!savedDesignId) savedDesignId = createLocalDesignId();
+      syncCartProperties();
+      setDesignSaveStatus("saving", "Saving your artwork in the background…");
+      const previousAssetsSave = selectedDesignAssetsSavePromise;
+      selectedDesignAssetsSavePromise = (async () => {
+        if (previousAssetsSave) await previousAssetsSave.catch(() => false);
+        return saveSelectedDesignAssets(index);
+      })().catch((error) => {
+        setDesignSaveStatus("failed", "Artwork save failed — please keep this page open and try again");
+        console.warn("Selected design asset upload skipped:", error);
+        return false;
+      });
 
       // Update selected cards state
       document.querySelectorAll(".variant-card").forEach((card, idx) => {
@@ -1977,54 +1958,6 @@
         updateSvgLayout();
         revealStep(3);
       }, 350);
-    }
-
-    async function saveSelectedDesign(index) {
-      if (!sourceImageDataUrl || !selectedVariant) return false;
-      if (selectedDesignSavePromise && selectedDesignSaveIndex === index) return selectedDesignSavePromise;
-
-      selectedDesignSaveIndex = index;
-      const savePromise = (async () => {
-        const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            designId: savedDesignId,
-            lightweight: true,
-            settings: getDesignSettings(index)
-          })
-        });
-
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || "Design save failed.");
-        }
-
-        savedDesignId = data.designId || savedDesignId || "";
-        setCartDesignReady(Boolean(savedDesignId));
-        setDesignSaveStatus("saving", "Saving selected artwork…");
-        syncCartProperties();
-        selectedDesignAssetsSavePromise = saveSelectedDesignAssets(index).catch((error) => {
-          console.warn("Selected design asset upload skipped:", error);
-          return false;
-        });
-        return Boolean(savedDesignId);
-      })();
-      selectedDesignSavePromise = savePromise;
-
-      try {
-        return await savePromise;
-      } catch (err) {
-        console.warn("Design save skipped:", err);
-        return false;
-      } finally {
-        if (selectedDesignSavePromise === savePromise) {
-          selectedDesignSavePromise = null;
-          selectedDesignSaveIndex = -1;
-        }
-      }
     }
 
     async function saveSelectedDesignAssets(index) {
@@ -2262,8 +2195,6 @@
       sourceImageDataUrl = "";
       selectedVariant = null;
       selectedVariantIndex = -1;
-      selectedDesignSavePromise = null;
-      selectedDesignSaveIndex = -1;
       selectedDesignAssetsSavePromise = null;
       currentGenerationCacheKey = "";
       clearCartDesignAutoSave();
