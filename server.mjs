@@ -1148,10 +1148,20 @@ app.use((error, req, res, _next) => {
 app.listen(port, () => {
   console.log(`Line art backend running on port ${port}`);
   getMongoClient()
-    .then(() => {
+    .then((client) => {
       console.info("MongoDB connected");
+      return client.db(process.env.MONGODB_DB_NAME || "stamptrial")
+        .collection("designs")
+        .createIndex(
+          { hasOrder: -1, createdAt: -1, designId: -1 },
+          { name: "designs_order_priority", background: true }
+        )
+        .then(() => {
+          designIndexesReady = true;
+          console.info("Dashboard priority index ready");
+        });
     })
     .catch((error) => {
-      console.warn("Design index startup warmup skipped", { error: error.message || String(error) });
+      console.warn("Dashboard priority index startup failed", { error: error.message || String(error) });
     });
 });
