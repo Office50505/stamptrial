@@ -359,39 +359,29 @@
       const revisionAtStart = cartDesignRevision;
       if (selectedDesignAssetsSavePromise) await selectedDesignAssetsSavePromise;
       updateSvgLayout({ skipDirty: true });
-      const finalDesignDataUrl = await renderFinalDesignDataUrl();
-      const payload = {
-        designId: savedDesignId,
-        finalDesignDataUrl,
-        settings: getDesignSettings()
-      };
-
-      if (!savedDesignId) {
-        const variantCanvas = makeTransparentLineCanvas(selectedVariant, currentInkColor);
-        payload.originalImageDataUrl = sourceImageDataUrl;
-        payload.chosenVariantDataUrl = variantCanvas.toDataURL("image/png");
-      }
-
       const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          designId: savedDesignId,
+          lightweight: true,
+          settings: getDesignSettings()
+        })
       });
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || "Design save failed.");
+        throw new Error(data.error || "Design settings save failed.");
       }
 
       if (revisionAtStart !== cartDesignRevision) return false;
 
       savedDesignId = data.designId || savedDesignId;
-      finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
       lastSavedCartDesignRevision = revisionAtStart;
       syncCartProperties();
-      return Boolean(finalDesignImageUrl);
+      return Boolean(savedDesignId && finalDesignImageUrl);
     }
 
     async function saveFinalDesignForCart({ silent = false } = {}) {
@@ -401,7 +391,7 @@
 
       cartDesignSavePromise = (async () => {
         isSavingCartDesign = true;
-        setDesignSaveStatus("saving", "Saving production artwork…");
+        setDesignSaveStatus("saving", "Saving design details…");
         clearCartDesignAutoSave();
         try {
           for (let attempt = 0; attempt < 2; attempt++) {

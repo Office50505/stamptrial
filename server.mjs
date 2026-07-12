@@ -885,6 +885,9 @@ app.post("/api/save-design", async (req, res) => {
 
     const uploadedEntries = await Promise.all(uploadJobs.map(async ([key, promise]) => [key, await promise]));
     const uploadedUrls = Object.fromEntries(uploadedEntries);
+    if (uploadedUrls.chosenVariantUrl && !uploadedUrls.finalDesignUrl) {
+      uploadedUrls.finalDesignUrl = uploadedUrls.chosenVariantUrl;
+    }
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
