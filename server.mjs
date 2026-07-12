@@ -1037,9 +1037,16 @@ app.get("/api/designs", async (req, res) => {
     const designsQuery = db.collection("designs").find(query, { projection: {
       _id: 0, designId: 1, hasOrder: 1, workflowStatus: 1,
       originalImageUrl: 1, chosenVariantUrl: 1, finalDesignUrl: 1,
-      settings: 1, orderId: 1, orderName: 1, orderNumber: 1,
+      "settings.selectedSize": 1, "settings.aboveText": 1,
+      "settings.belowText": 1, "settings.inkColor": 1,
+      "settings.notesForDesigner": 1,
+      orderId: 1, orderName: 1, orderNumber: 1,
       orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
-    }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 }).limit(limit + 1).maxTimeMS(8000).toArray();
+    }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 })
+      .hint("designs_order_priority")
+      .limit(limit + 1)
+      .maxTimeMS(8000)
+      .toArray();
     let queryTimeout;
     const results = await Promise.race([
       designsQuery,
