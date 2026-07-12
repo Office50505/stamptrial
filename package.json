@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "purge-designs": "node scripts/purge-designs.mjs"
+    "purge-designs": "node scripts/purge-designs.mjs",
+    "backfill-shopify-sizes": "node scripts/backfill-shopify-sizes.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -983,6 +983,13 @@ app.get("/api/design-count", async (req, res) => {
 
 app.get("/api/designs", async (req, res) => {
   const startedAt = Date.now();
+  const requestId = crypto.randomBytes(4).toString("hex");
+  console.log("Dashboard designs request started", {
+    requestId,
+    limit: req.query.limit || "15",
+    hasCursor: Boolean(req.query.cursor),
+    status: req.query.status || "all"
+  });
   try {
     const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 15));
     let cursor = null;
@@ -995,7 +1002,9 @@ app.get("/api/designs", async (req, res) => {
         return;
       }
     }
+    const mongoStartedAt = Date.now();
     const client = await getMongoClient();
+    const mongoMs = msSince(mongoStartedAt);
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const baseQuery = buildDashboardFilter(req.query);
     const cursorQuery = cursor ? { $or: [
@@ -1018,9 +1027,12 @@ app.get("/api/designs", async (req, res) => {
     const nextCursor = hasMore && last?.createdAt && last?.designId
       ? Buffer.from(JSON.stringify({ hasOrder: Boolean(last.hasOrder), createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
       : null;
-    res.json({ designs, nextCursor, timings: { queryMs: msSince(queryStartedAt), totalMs: msSince(startedAt), indexReady: designIndexesReady } });
+    const queryMs = msSince(queryStartedAt);
+    const totalMs = msSince(startedAt);
+    console.log("Dashboard designs request completed", { requestId, returned: designs.length, hasMore, mongoMs, queryMs, totalMs });
+    res.json({ designs, nextCursor, timings: { mongoMs, queryMs, totalMs, indexReady: designIndexesReady } });
   } catch (error) {
-    console.error(error);
+    console.error("Dashboard designs request failed", { requestId, totalMs: msSince(startedAt), error: error?.message || String(error) });
     res.status(500).json({ error: "Could not load designs" });
   }
 });
