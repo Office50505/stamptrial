@@ -918,6 +918,30 @@ app.post("/api/save-design", async (req, res) => {
   }
 });
 
+app.post("/api/save-checkout-thumbnail", async (req, res) => {
+  try {
+    const designId = String(req.body?.designId || "");
+    const thumbnailDataUrl = String(req.body?.thumbnailDataUrl || "");
+    if (!/^des_[a-f0-9-]{36}$/i.test(designId) || !thumbnailDataUrl) {
+      res.status(400).json({ error: "Invalid thumbnail request" });
+      return;
+    }
+    const parsed = parseDataUrl(thumbnailDataUrl);
+    if (parsed.buffer.length > 500 * 1024 || !["image/webp", "image/jpeg", "image/png"].includes(parsed.mimeType)) {
+      res.status(400).json({ error: "Invalid checkout thumbnail" });
+      return;
+    }
+    const extension = extensionFromMime(parsed.mimeType);
+    const checkoutThumbnailUrl = await uploadToBunny(
+      `designs/${designId}/checkout-thumbnail-${crypto.randomUUID()}.${extension}`,
+      thumbnailDataUrl
+    );
+    res.json({ designId, checkoutThumbnailUrl });
+  } catch (error) {
+    console.error("Checkout thumbnail save failed", error);
+    res.status(500).json({ error: "Could not save checkout thumbnail" });
+  }
+});
 function escapeRegex(value) {
   return String(value || "").replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
 }

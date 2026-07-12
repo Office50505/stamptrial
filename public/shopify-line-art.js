@@ -28,6 +28,8 @@
     let isPreparingMockups = false;
     let cartDesignSavePromise = null;
     let selectedDesignAssetsSavePromise = null;
+    let checkoutThumbnailPromise = null;
+    let checkoutThumbnailUrl = "";
     let uploadProgressTimer = null;
     let uploadProgressValue = 0;
     let uploadStatusMessageTimer = null;
@@ -264,6 +266,7 @@
         selectedVariantIndex: index,
         selectedStyleName: getSelectedVariantStyleName(index),
         selectedVariantPreviewUrl: getSelectedVariantPreviewUrl(index),
+        checkoutThumbnailUrl,
         selectedSize,
         inkColor: currentInkColor,
         aboveText: document.getElementById("above-text-input")?.value || "",
@@ -284,7 +287,7 @@
 
     function syncCartProperties() {
       ensureCartPropertyInputs();
-      setCartProperty("_Design Preview", finalDesignImageUrl);
+      setCartProperty("_Design Preview", checkoutThumbnailUrl || finalDesignImageUrl);
       setCartProperty("_Design ID", savedDesignId);
       setCartProperty("Reference ID", savedDesignId);
       setCartProperty("Stamp Color", currentInkColor);
@@ -453,7 +456,8 @@
       getShopifyProductForms().forEach((form) => {
         if (form.dataset.lineArtBridgeReady === "true") return;
         form.dataset.lineArtBridgeReady = "true";
-        form.addEventListener("submit", (event) => {
+        form.addEventListener("submit", async (event) => {
+          if (form.dataset.lineArtThumbnailSubmitting === "true") return;
           if (!sourceImageDataUrl || !selectedVariant) {
             event.preventDefault();
             event.stopPropagation();
@@ -463,10 +467,22 @@
           }
 
           syncCartProperties();
-          if (savedDesignId) return;
+          if (!checkoutThumbnailPromise || checkoutThumbnailUrl) return;
           event.preventDefault();
           event.stopPropagation();
-          setDesignSaveStatus("saving", "Preparing your design before cart…");
+          setCartSubmitLoading(form, true, "Preparing preview…");
+          await Promise.race([
+            checkoutThumbnailPromise.catch(() => false),
+            new Promise((resolve) => setTimeout(resolve, 2000))
+          ]);
+          syncCartProperties();
+          form.dataset.lineArtThumbnailSubmitting = "true";
+          if (typeof form.requestSubmit === "function") form.requestSubmit();
+          else form.submit();
+          setTimeout(() => {
+            form.dataset.lineArtThumbnailSubmitting = "false";
+            setCartSubmitLoading(form, false);
+          }, 1000);
         }, true);
       });
     }
@@ -610,6 +626,8 @@
       generatedVariantPreviews = [];
       generatedVariantSourceUrls = [];
       selectedDesignAssetsSavePromise = null;
+      checkoutThumbnailPromise = null;
+      checkoutThumbnailUrl = "";
       document.getElementById("variants-container").innerHTML = "";
       syncCartProperties();
       document.getElementById("preview-filename").textContent = file.name;
@@ -1920,10 +1938,16 @@
       selectedVariantIndex = index;
       selectedVariant = generatedLineArtVariants[index];
       if (!savedDesignId) savedDesignId = createLocalDesignId();
+      checkoutThumbnailUrl = "";
       syncCartProperties();
-      setDesignSaveStatus("saving", "Saving your artwork in the background…");
+      checkoutThumbnailPromise = saveCheckoutThumbnail(index).catch((error) => {
+        console.warn("Checkout thumbnail upload skipped:", error);
+        return false;
+      });
+      setDesignSaveStatus("saving", "Preparing checkout preview…");
       const previousAssetsSave = selectedDesignAssetsSavePromise;
       selectedDesignAssetsSavePromise = (async () => {
+        await checkoutThumbnailPromise;
         if (previousAssetsSave) await previousAssetsSave.catch(() => false);
         return saveSelectedDesignAssets(index);
       })().catch((error) => {
@@ -1950,6 +1974,31 @@
       }, 350);
     }
 
+    async function saveCheckoutThumbnail(index) {
+      const lineArt = generatedLineArtVariants[index];
+      if (!lineArt || !savedDesignId) return false;
+      const sourceCanvas = makeTransparentLineCanvas(lineArt, "black");
+      const canvas = document.createElement("canvas");
+      canvas.width = 240;
+      canvas.height = 240;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, 240, 240);
+      const scale = Math.min(240 / sourceCanvas.width, 240 / sourceCanvas.height);
+      const width = sourceCanvas.width * scale;
+      const height = sourceCanvas.height * scale;
+      ctx.drawImage(sourceCanvas, (240 - width) / 2, (240 - height) / 2, width, height);
+      const response = await fetch(`${BACKEND_BASE_URL}/api/save-checkout-thumbnail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designId: savedDesignId, thumbnailDataUrl: canvas.toDataURL("image/webp", 0.72) })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Checkout thumbnail save failed.");
+      if (index !== selectedVariantIndex) return false;
+      checkoutThumbnailUrl = data.checkoutThumbnailUrl || "";
+      syncCartProperties();
+      return Boolean(checkoutThumbnailUrl);
+    }
     async function saveSelectedDesignAssets(index) {
       if (!sourceImageDataUrl || !savedDesignId || index < 0) return false;
       const lineArt = generatedLineArtVariants[index];
@@ -2186,6 +2235,8 @@
       selectedVariant = null;
       selectedVariantIndex = -1;
       selectedDesignAssetsSavePromise = null;
+      checkoutThumbnailPromise = null;
+      checkoutThumbnailUrl = "";
       currentGenerationCacheKey = "";
       clearCartDesignAutoSave();
       cartDesignRevision++;
