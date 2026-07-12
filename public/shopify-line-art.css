@@ -1202,3 +1202,5 @@ body.line-art-fullscreen-open {
       flex-shrink: 0;
     }
   
+
+.line-art-customizer-root .design-save-status{padding:9px 12px;border-radius:9px;background:#f3f4f6;color:#667085;font-size:12px;font-weight:650}.line-art-customizer-root .design-save-status[data-status="saving"]{background:#eff6ff;color:#175cd3}.line-art-customizer-root .design-save-status[data-status="saved"]{background:#eaf8f0;color:#18794e}.line-art-customizer-root .design-save-status[data-status="failed"]{background:#fff1f0;color:#b42318}

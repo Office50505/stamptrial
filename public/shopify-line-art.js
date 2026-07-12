@@ -38,6 +38,8 @@
     let cartDesignRevision = 0;
     let lastSavedCartDesignRevision = -1;
     let cartDesignAutoSaveTimer = null;
+    let cartSaveStatus = "idle";
+    let cartDesignRetryCount = 0;
     let selectedVariantIndex = -1;
     let currentGenerationCacheKey = "";
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
@@ -293,7 +295,9 @@
 
     function markCartDesignChanged({ scheduleAutoSave = true } = {}) {
       cartDesignRevision++;
+      cartDesignRetryCount = 0;
       finalDesignImageUrl = "";
+      setDesignSaveStatus("pending", "Changes waiting to save");
       syncCartProperties();
       if (scheduleAutoSave) scheduleCartDesignAutoSave();
     }
@@ -303,13 +307,28 @@
       cartDesignAutoSaveTimer = null;
     }
 
-    function scheduleCartDesignAutoSave(delay = 250) {
+    function setDesignSaveStatus(status, message) {
+      cartSaveStatus = status;
+      let element = document.getElementById("design-save-status");
+      const controls = document.querySelector(".controls-panel");
+      if (!element && controls) {
+        element = document.createElement("div");
+        element.id = "design-save-status";
+        element.className = "design-save-status";
+        controls.prepend(element);
+      }
+      if (!element) return;
+      element.dataset.status = status;
+      element.textContent = message;
+    }
+
+    function scheduleCartDesignAutoSave(delay = 1200) {
       clearCartDesignAutoSave();
       if (!sourceImageDataUrl || !selectedVariant || isGeneratingLineArt) return;
 
       cartDesignAutoSaveTimer = setTimeout(() => {
         cartDesignAutoSaveTimer = null;
-        if (!sourceImageDataUrl || !selectedVariant || finalDesignImageUrl || isGeneratingLineArt) return;
+        if (!sourceImageDataUrl || !selectedVariant || lastSavedCartDesignRevision === cartDesignRevision || isGeneratingLineArt) return;
         saveFinalDesignForCart({ silent: true }).catch((error) => {
           console.warn("Background design save skipped:", error);
         });
@@ -334,6 +353,7 @@
 
     async function uploadCurrentCartDesignSnapshot() {
       const revisionAtStart = cartDesignRevision;
+      if (selectedDesignAssetsSavePromise) await selectedDesignAssetsSavePromise;
       updateSvgLayout({ skipDirty: true });
       const finalDesignDataUrl = await renderFinalDesignDataUrl();
       const payload = {
@@ -378,19 +398,27 @@
 
       cartDesignSavePromise = (async () => {
         isSavingCartDesign = true;
+        setDesignSaveStatus("saving", "Saving production artwork…");
         clearCartDesignAutoSave();
         try {
           for (let attempt = 0; attempt < 2; attempt++) {
             const saved = await uploadCurrentCartDesignSnapshot();
-            if (saved) return true;
+            if (saved) {
+              cartDesignRetryCount = 0;
+              setDesignSaveStatus("saved", "Design saved");
+              return true;
+            }
           }
           return false;
         } catch (err) {
+          cartDesignRetryCount++;
+          setDesignSaveStatus("failed", cartDesignRetryCount < 2 ? "Save failed — retrying" : "Save failed — please try again");
           if (!silent) console.warn("Final design save skipped:", err);
           return false;
         } finally {
           isSavingCartDesign = false;
           cartDesignSavePromise = null;
+          if (lastSavedCartDesignRevision !== cartDesignRevision && cartDesignRetryCount < 2) scheduleCartDesignAutoSave(1500);
         }
       })();
 
@@ -1928,6 +1956,7 @@
     function selectVariant(index) {
       selectedVariantIndex = index;
       selectedVariant = generatedLineArtVariants[index];
+      setDesignSaveStatus("saving", "Securing your design…");
       saveSelectedDesign(index);
 
       // Update selected cards state
@@ -1972,6 +2001,7 @@
         }
 
         savedDesignId = data.designId || savedDesignId || "";
+        setDesignSaveStatus("saving", "Saving selected artwork…");
         syncCartProperties();
         selectedDesignAssetsSavePromise = saveSelectedDesignAssets(index).catch((error) => {
           console.warn("Selected design asset upload skipped:", error);
@@ -2022,6 +2052,7 @@
       savedDesignId = data.designId || savedDesignId || "";
       if (!finalDesignImageUrl) finalDesignImageUrl = data.finalDesignUrl || data.chosenVariantUrl || "";
       syncCartProperties();
+      scheduleCartDesignAutoSave(0);
       return true;
     }
 
