@@ -428,6 +428,34 @@
     function getCartSubmitButton(form) {
       return form.querySelector('button[type="submit"], input[type="submit"], button[name="add"], [name="add"]');
     }
+    function setCartDesignReady(isReady) {
+      getShopifyProductForms().forEach((form) => {
+        const button = getCartSubmitButton(form);
+        if (!button) return;
+        if (!isReady) {
+          if (button.dataset.lineArtDesignLocked !== "true") {
+            button.dataset.lineArtDesignLocked = "true";
+            button.dataset.lineArtWasDisabled = String(button.disabled);
+            if (button.tagName === "INPUT") {
+              button.dataset.lineArtReadyValue = button.value;
+              button.value = "Preparing design…";
+            } else {
+              button.dataset.lineArtReadyHtml = button.innerHTML;
+              button.textContent = "Preparing design…";
+            }
+          }
+          button.disabled = true;
+          button.setAttribute("aria-busy", "true");
+          return;
+        }
+        if (button.dataset.lineArtDesignLocked !== "true") return;
+        button.disabled = button.dataset.lineArtWasDisabled === "true";
+        button.removeAttribute("aria-busy");
+        if (button.tagName === "INPUT") button.value = button.dataset.lineArtReadyValue || button.value;
+        else button.innerHTML = button.dataset.lineArtReadyHtml || button.innerHTML;
+        delete button.dataset.lineArtDesignLocked;
+      });
+    }
 
     function setCartSubmitLoading(form, isLoading, label = "Adding to cart...") {
       const button = getCartSubmitButton(form);
@@ -461,9 +489,7 @@
       getShopifyProductForms().forEach((form) => {
         if (form.dataset.lineArtBridgeReady === "true") return;
         form.dataset.lineArtBridgeReady = "true";
-        form.addEventListener("submit", async (event) => {
-          if (form.dataset.lineArtSubmitting === "true") return;
-
+        form.addEventListener("submit", (event) => {
           if (!sourceImageDataUrl || !selectedVariant) {
             event.preventDefault();
             event.stopPropagation();
@@ -473,35 +499,10 @@
           }
 
           syncCartProperties();
-          if (savedDesignId) {
-            return;
-          }
-
+          if (savedDesignId) return;
           event.preventDefault();
           event.stopPropagation();
-          setCartSubmitLoading(form, true, "Adding to cart...");
-          if (!savedDesignId && !selectedDesignSavePromise) {
-            saveSelectedDesign(selectedVariantIndex >= 0 ? selectedVariantIndex : 0);
-          }
-          const saved = savedDesignId || await selectedDesignSavePromise;
-
-          if (!saved) {
-            setCartSubmitLoading(form, false);
-            alert("Please finish your custom line art before adding this product to cart.");
-            return;
-          }
-
-          syncCartProperties();
-          form.dataset.lineArtSubmitting = "true";
-          if (typeof form.requestSubmit === "function") {
-            form.requestSubmit();
-          } else {
-            form.submit();
-          }
-          setTimeout(() => {
-            form.dataset.lineArtSubmitting = "false";
-            setCartSubmitLoading(form, false);
-          }, 1000);
+          setDesignSaveStatus("saving", "Preparing your design before cart…");
         }, true);
       });
     }
@@ -1956,6 +1957,7 @@
     function selectVariant(index) {
       selectedVariantIndex = index;
       selectedVariant = generatedLineArtVariants[index];
+      setCartDesignReady(false);
       setDesignSaveStatus("saving", "Securing your design…");
       saveSelectedDesign(index);
 
@@ -2001,6 +2003,7 @@
         }
 
         savedDesignId = data.designId || savedDesignId || "";
+        setCartDesignReady(Boolean(savedDesignId));
         setDesignSaveStatus("saving", "Saving selected artwork…");
         syncCartProperties();
         selectedDesignAssetsSavePromise = saveSelectedDesignAssets(index).catch((error) => {
