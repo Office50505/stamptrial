@@ -188,6 +188,19 @@ function getOrderCustomerName(order) {
   return [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
 }
 
+function getShopifyLineItemSize(lineItem) {
+  const label = [lineItem.variant_title, getLineItemProperty(lineItem, "Size"), getLineItemProperty(lineItem, "Stamp Size")]
+    .filter(Boolean).join(" ").replace(/[–—]/g, "-").trim();
+  const normalized = label.toLowerCase();
+  let key = "";
+  if (/(^|\D)10\s*(inch|in|")\b/.test(normalized) || /(^|\s)(xxl|2xl)(\s|$|-)/.test(normalized)) key = "xxl";
+  else if (/(^|\D)8\s*(inch|in|")\b/.test(normalized) || /(^|\s)xl(\s|$|-)/.test(normalized)) key = "xl";
+  else if (/(^|\D)6\s*(inch|in|")\b/.test(normalized) || /(^|\s)l(\s|$|-)/.test(normalized)) key = "l";
+  else if (/(^|\D)4\s*(inch|in|")\b/.test(normalized) || /(^|\s)m(\s|$|-)/.test(normalized)) key = "m";
+  else if (/(^|\D)3\s*(inch|in|")\b/.test(normalized) || /(^|\s)s(\s|$|-)/.test(normalized)) key = "s";
+  return { key, label };
+}
+
 app.post("/api/shopify/orders-create", express.raw({ type: "application/json", limit: "5mb" }), async (req, res) => {
   try {
     const hmac = req.get("x-shopify-hmac-sha256");
@@ -241,6 +254,22 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
         ...(webhookId ? { $addToSet: { webhookIds: webhookId } } : {})
       }
     );
+
+    const sizeUpdates = lineItems.map((lineItem) => {
+      const designId = getLineItemProperty(lineItem, "_Design ID") ||
+        getLineItemProperty(lineItem, "Design ID") ||
+        getLineItemProperty(lineItem, "Reference ID");
+      const size = getShopifyLineItemSize(lineItem);
+      return designId && size.key ? {
+        updateOne: {
+          filter: { designId },
+          update: { $set: { "settings.selectedSize": size.key, "settings.selectedSizeLabel": size.label } }
+        }
+      } : null;
+    }).filter(Boolean);
+    if (sizeUpdates.length) {
+      await db.collection("designs").bulkWrite(sizeUpdates, { ordered: false });
+    }
 
     console.info("Shopify orders/create webhook processed", {
       orderName: orderPayload.orderName,

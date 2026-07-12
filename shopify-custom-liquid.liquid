@@ -1,7 +1,76 @@
+{% assign line_art_version = '20260712-2' %}
+
 <link rel="preconnect" href="https://stamptrial-production.up.railway.app">
-<link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v=20260711-fast-cart-1">
-<div id="line-art-customizer-mount"></div>
+<link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v={{ line_art_version }}">
+
+<div id="line-art-customizer-mount">
+  <div id="line-art-fallback" style="padding: 14px 0;">
+    <button id="line-art-fallback-button" type="button"
+      style="width:100%;min-height:56px;padding:12px 18px;border:0;border-radius:10px;background:#2f80ed;color:#fff;font:inherit;font-weight:750;cursor:pointer;box-shadow:0 8px 22px rgba(47,128,237,.18);">
+      Upload your logo
+    </button>
+    <div id="line-art-fallback-message" role="status" aria-live="polite"
+      style="display:none;margin-top:8px;color:#6b7280;font-size:12px;text-align:center;"></div>
+  </div>
+</div>
+
+<noscript>
+  <p style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;">
+    Please enable JavaScript to upload and customize your logo.
+  </p>
+</noscript>
+
 <script>
   window.LINE_ART_BACKEND_URL = "https://stamptrial-production.up.railway.app";
+  window.LINE_ART_ASSET_VERSION = {{ line_art_version | json }};
+
+  window.retryLineArtCustomizer = function () {
+    var mount = document.getElementById("line-art-customizer-mount");
+    var button = document.getElementById("line-art-fallback-button");
+    var message = document.getElementById("line-art-fallback-message");
+    if (!mount || mount.dataset.initialized === "true") return;
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Loading customizer...";
+      button.style.opacity = "0.72";
+    }
+    if (message) {
+      message.style.display = "block";
+      message.textContent = "Connecting to the design studio...";
+    }
+
+    var previousRetry = document.getElementById("line-art-customizer-retry-script");
+    if (previousRetry && previousRetry.parentNode) previousRetry.parentNode.removeChild(previousRetry);
+
+    var script = document.createElement("script");
+    script.id = "line-art-customizer-retry-script";
+    script.src = window.LINE_ART_BACKEND_URL + "/shopify-line-art.js?v=" +
+      encodeURIComponent(window.LINE_ART_ASSET_VERSION) + "&retry=" + Date.now();
+    script.onload = function () {
+      if (mount.dataset.initialized !== "true" && message) {
+        message.textContent = "The studio loaded but could not start. Please refresh this page.";
+      }
+    };
+    script.onerror = function () {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Retry logo uploader";
+        button.style.opacity = "1";
+      }
+      if (message) {
+        message.textContent = "The design studio could not load. Check your connection and try again.";
+      }
+    };
+    document.head.appendChild(script);
+  };
+
+  var fallbackButton = document.getElementById("line-art-fallback-button");
+  if (fallbackButton) fallbackButton.addEventListener("click", window.retryLineArtCustomizer);
 </script>
-<script src="https://stamptrial-production.up.railway.app/shopify-line-art.js?v=20260711-fast-cart-1" defer></script>
+
+<script
+  src="https://stamptrial-production.up.railway.app/shopify-line-art.js?v={{ line_art_version }}"
+  defer
+  onerror="document.getElementById('line-art-fallback-message').style.display='block'; document.getElementById('line-art-fallback-message').textContent='The design studio could not load. Tap Upload your logo to retry.';"
+></script>

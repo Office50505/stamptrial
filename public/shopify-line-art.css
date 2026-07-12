@@ -485,6 +485,7 @@
       outline-offset: 2px;
     }
 .line-art-customizer-root /* Size-specific preview widths */
+    .svg-artwork-container.size-s { max-width: 440px; }
     .svg-artwork-container.size-m { max-width: 520px; }
 .line-art-customizer-root .svg-artwork-container.size-l { max-width: 680px; }
 .line-art-customizer-root .svg-artwork-container.size-xl { max-width: 900px; }
