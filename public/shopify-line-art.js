@@ -86,20 +86,7 @@
       green: "#059669"
     };
 
-    const SIZE_MAP = {
-      s: 160,
-      m: 200,
-      l: 300,
-      xl: 360,
-      xxl: 420
-    };
-    const SIZE_MAP_WITH_TEXT = {
-      s: 150,
-      m: 190,
-      l: 270,
-      xl: 315,
-      xxl: 330
-    };
+    const EDITOR_ARTWORK_FIT_SIZE = 400;
     const SIZE_RADIUS = {
       s: 110,
       m: 135,
@@ -1420,13 +1407,13 @@
 
     function getProcessingImageDataUrl() {
       const canvas = document.createElement("canvas");
-      const processingSize = 1280;
+      const processingSize = 2048;
       if (sourceInputMode === "crop") {
         drawCropToCanvas(canvas, processingSize);
       } else {
         drawWholeImageToCanvas(canvas, processingSize);
       }
-      return canvas.toDataURL("image/jpeg", 0.8);
+      return canvas.toDataURL("image/png");
     }
 
     function updateProgressUI(scope, progress, text) {
@@ -2065,7 +2052,7 @@
       svgImage.setAttribute("href", transparentDataUrl);
 
       // Fit and center the artwork only; text is saved for the designer but not rendered in preview.
-      const maxFitSize = SIZE_MAP[selectedSize] || 300;
+      const maxFitSize = EDITOR_ARTWORK_FIT_SIZE;
       const scale = Math.min(maxFitSize / lineCanvas.width, maxFitSize / lineCanvas.height);
       const drawW = lineCanvas.width * scale;
       const drawH = lineCanvas.height * scale;

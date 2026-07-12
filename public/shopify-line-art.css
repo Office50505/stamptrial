@@ -484,12 +484,6 @@
       outline: 3px solid rgba(17, 24, 39, 0.22);
       outline-offset: 2px;
     }
-.line-art-customizer-root /* Size-specific preview widths */
-    .svg-artwork-container.size-s { max-width: 440px; }
-    .svg-artwork-container.size-m { max-width: 520px; }
-.line-art-customizer-root .svg-artwork-container.size-l { max-width: 680px; }
-.line-art-customizer-root .svg-artwork-container.size-xl { max-width: 900px; }
-.line-art-customizer-root .svg-artwork-container.size-xxl { max-width: 1040px; }
 .line-art-customizer-root /* Subtle grid backdrop for transparent preview */
     .checkerboard-bg {
       background-color: #ffffff;

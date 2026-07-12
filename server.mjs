@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const GENERATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const GENERATION_CACHE_VERSION = "line-art-gpt-image-2-low-v1";
+const GENERATION_CACHE_VERSION = "line-art-gpt-image-2-low-png-2048-v2";
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
