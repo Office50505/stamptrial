@@ -110,7 +110,6 @@ function getMongoClient() {
     serverSelectionTimeoutMS: 8000,
     connectTimeoutMS: 8000,
     waitQueueTimeoutMS: 5000,
-    socketTimeoutMS: 10000,
     maxPoolSize: 10
   });
   let timeout;
