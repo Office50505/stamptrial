@@ -1114,7 +1114,7 @@ app.get("/api/designs", async (req, res) => {
     if (req.query.cursor) {
       try {
         cursor = JSON.parse(Buffer.from(String(req.query.cursor), "base64url").toString("utf8"));
-        if (typeof cursor.hasOrder !== "boolean" || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
+        if (!cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
       } catch {
         res.status(400).json({ error: "Invalid pagination cursor" });
         return;
@@ -1127,9 +1127,8 @@ app.get("/api/designs", async (req, res) => {
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const baseQuery = buildDashboardFilter(req.query);
     const cursorQuery = cursor ? { $or: [
-      { hasOrder: { $lt: cursor.hasOrder } },
-      { hasOrder: cursor.hasOrder, createdAt: { $lt: new Date(cursor.createdAt) } },
-      { hasOrder: cursor.hasOrder, createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
+      { createdAt: { $lt: new Date(cursor.createdAt) } },
+      { createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
     ] } : null;
     const query = cursorQuery ? (Object.keys(baseQuery).length ? { $and: [baseQuery, cursorQuery] } : cursorQuery) : baseQuery;
     const queryStartedAt = Date.now();
@@ -1142,8 +1141,7 @@ app.get("/api/designs", async (req, res) => {
       "settings.notesForDesigner": 1,
       orderId: 1, orderName: 1, orderNumber: 1,
       orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
-    }}).sort({ hasOrder: -1, createdAt: -1, designId: -1 })
-      .hint("designs_order_priority")
+    }}).sort({ createdAt: -1, designId: -1 })
       .limit(limit + 1)
       .maxTimeMS(8000)
       .toArray();
@@ -1159,7 +1157,7 @@ app.get("/api/designs", async (req, res) => {
     const designs = (hasMore ? results.slice(0, limit) : results).map(expandDesignAssetUrls);
     const last = designs.at(-1);
     const nextCursor = hasMore && last?.createdAt && last?.designId
-      ? Buffer.from(JSON.stringify({ hasOrder: Boolean(last.hasOrder), createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
+      ? Buffer.from(JSON.stringify({ createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
       : null;
     const queryMs = msSince(queryStartedAt);
     const totalMs = msSince(startedAt);
