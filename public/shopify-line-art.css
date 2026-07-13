@@ -867,16 +867,17 @@ body.line-art-fullscreen-open {
       --fullscreen-strip-width: min(560px, 100%);
       padding-bottom: 18px;
       display: grid;
-      grid-template-rows: auto auto;
-      gap: 0;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 18px;
       justify-items: center;
-      align-items: center;
-      align-content: center;
+      align-items: stretch;
+      align-content: stretch;
       overflow-y: auto;
     }
 .fullscreen-image {
       max-width: 100%;
-      max-height: min(68vh, calc(100vh - 230px));
+      max-height: 100%;
+      align-self: center;
       object-fit: contain;
       background: #ffffff;
       border-radius: 8px;
@@ -884,7 +885,6 @@ body.line-art-fullscreen-open {
     }
 .fullscreen-controls-stack {
       width: min(700px, 100%);
-      margin-top: 26px;
       display: grid;
       justify-items: center;
       gap: 12px;
@@ -1172,9 +1172,8 @@ body.line-art-fullscreen-open {
 .line-art-customizer-root .button-row { flex-direction: column-reverse; gap: 10px; margin-top: 20px; }
 .line-art-customizer-root .preview-card img { max-height: 160px; }
 .line-art-customizer-root .crop-canvas { width: 100%; }
-.fullscreen-image-shell { gap: 0; padding-bottom: 16px; }
-.fullscreen-image { max-height: min(54vh, calc(100vh - 250px)); }
-.fullscreen-controls-stack { margin-top: 24px; gap: 10px; }
+.fullscreen-image-shell { gap: 14px; padding-bottom: 16px; }
+.fullscreen-controls-stack { gap: 10px; }
 .fullscreen-thumbnails { width: min(var(--fullscreen-strip-width, 360px), 100%); gap: 8px; }
 .fullscreen-dots { gap: 7px; }
 .fullscreen-dot { width: 8px; height: 8px; }

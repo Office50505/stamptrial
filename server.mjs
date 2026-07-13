@@ -140,6 +140,26 @@ function expandDesignAssetUrls(design) {
   return expanded;
 }
 
+function isEmbeddedDataImage(value) {
+  return /^data:image\//i.test(String(value || ""));
+}
+
+function sanitizeDesignSettings(settings, selectedVariantPreviewFallback = "") {
+  const sanitized = settings && typeof settings === "object" && !Array.isArray(settings)
+    ? { ...settings }
+    : {};
+
+  if (isEmbeddedDataImage(sanitized.selectedVariantPreviewUrl)) {
+    if (selectedVariantPreviewFallback) {
+      sanitized.selectedVariantPreviewUrl = selectedVariantPreviewFallback;
+    } else {
+      delete sanitized.selectedVariantPreviewUrl;
+    }
+  }
+
+  return sanitized;
+}
+
 function getMongoClient() {
   if (mongoClientPromise) return mongoClientPromise;
 
@@ -936,12 +956,16 @@ app.post("/api/save-design", async (req, res) => {
     const uploadedResponseUrls = Object.fromEntries(
       Object.entries(uploadedUrls).map(([key, asset]) => [key, asset.url])
     );
+    const selectedVariantPreviewFallback = uploadedUrls.chosenVariantUrl?.filename ||
+      uploadedUrls.finalDesignUrl?.filename ||
+      uploadedUrls.originalImageUrl?.filename ||
+      "";
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const design = {
       designId,
-      settings,
+      settings: sanitizeDesignSettings(settings, selectedVariantPreviewFallback),
       updatedAt: new Date()
     };
 

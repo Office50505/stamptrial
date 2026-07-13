@@ -43,6 +43,16 @@ function compactDesign(design) {
     compacted[field] = compactDesignUrl(compacted[field], compacted.designId);
   }
 
+  if (/^data:image\//i.test(String(compacted.settings?.selectedVariantPreviewUrl || ""))) {
+    const replacement = compacted.chosenVariantUrl || compacted.finalDesignUrl || compacted.originalImageUrl || "";
+    if (replacement) {
+      compacted.settings = { ...compacted.settings, selectedVariantPreviewUrl: replacement };
+    } else {
+      compacted.settings = { ...compacted.settings };
+      delete compacted.settings.selectedVariantPreviewUrl;
+    }
+  }
+
   compacted.migratedFromPreviousDbAt = new Date();
   return compacted;
 }
@@ -52,10 +62,36 @@ const targetUri = requiredEnv("MONGODB_URI");
 const clientOptions = {
   serverSelectionTimeoutMS: 10000,
   connectTimeoutMS: 10000,
-  socketTimeoutMS: 120000
+  socketTimeoutMS: 240000,
+  maxPoolSize: 1,
+  minPoolSize: 0,
+  maxConnecting: 1
 };
 const sourceClient = new MongoClient(sourceUri, clientOptions);
 const targetClient = new MongoClient(targetUri, clientOptions);
+
+async function retryMongoOperation(label, operation, attempts = 4) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const retryable = error?.name === "MongoNetworkTimeoutError" ||
+        error?.hasErrorLabel?.("RetryableWriteError") ||
+        error?.hasErrorLabel?.("TransientTransactionError");
+
+      if (!retryable || attempt === attempts) break;
+
+      const delayMs = 1000 * attempt;
+      console.warn(`${label} failed on attempt ${attempt}; retrying in ${delayMs}ms: ${error.message}`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw lastError;
+}
 
 try {
   console.log("Connecting to source and target MongoDB clusters...");
@@ -97,44 +133,52 @@ try {
   }, null, 2));
 
   if (applyChanges && designIdsToWrite.length) {
-    console.log(`Streaming and writing ${designIdsToWrite.length} design documents to target...`);
-    const totals = { matchedCount: 0, modifiedCount: 0, upsertedCount: 0, processedCount: 0 };
-    const flushOperations = async (operations) => {
-      if (!operations.length) return;
-      const result = await targetDesigns.bulkWrite(operations, { ordered: false });
+    console.log(`Reading and writing ${designIdsToWrite.length} design documents to target...`);
+    const totals = { matchedCount: 0, modifiedCount: 0, upsertedCount: 0, processedCount: 0, skippedMissingCount: 0 };
+    const writeOperation = async (operation) => {
+      const result = await retryMongoOperation(
+        "Target design write",
+        () => targetDesigns.bulkWrite([operation], { ordered: false })
+      );
       totals.matchedCount += result.matchedCount;
       totals.modifiedCount += result.modifiedCount;
       totals.upsertedCount += result.upsertedCount;
-      totals.processedCount += operations.length;
-      console.log(`Wrote ${totals.processedCount}/${designIdsToWrite.length} design documents...`);
+      totals.processedCount++;
+      if (totals.processedCount % 10 === 0 || totals.processedCount === designIdsToWrite.length) {
+        console.log(`Wrote ${totals.processedCount}/${designIdsToWrite.length} design documents...`);
+      }
     };
 
-    let operations = [];
-    const cursor = sourceDesigns
-      .find({ designId: { $in: designIdsToWrite } }, { maxTimeMS: 120000 })
-      .batchSize(10);
+    for (const [index, designId] of designIdsToWrite.entries()) {
+      if (index % 10 === 0) {
+        console.log(`Reading ${index + 1}/${designIdsToWrite.length}: ${designId}`);
+      }
+      const design = await retryMongoOperation(
+        `Source read ${designId}`,
+        () => sourceDesigns.findOne({ designId }, { maxTimeMS: 30000 })
+      );
+      if (!design) {
+        totals.skippedMissingCount++;
+        console.warn(`Skipped missing source design ${designId}`);
+        continue;
+      }
 
-    for await (const design of cursor) {
       const compactedDesign = compactDesign(design);
       const update = overwriteExisting
         ? { $set: compactedDesign }
         : { $setOnInsert: compactedDesign };
 
-      operations.push({
+      if (index % 10 === 0) {
+        console.log(`Writing ${index + 1}/${designIdsToWrite.length}: ${designId}`);
+      }
+      await writeOperation({
         updateOne: {
           filter: { designId: compactedDesign.designId },
           update,
           upsert: true
         }
       });
-
-      if (operations.length >= 20) {
-        await flushOperations(operations);
-        operations = [];
-      }
     }
-
-    await flushOperations(operations);
     console.log(JSON.stringify(totals, null, 2));
   }
 } finally {

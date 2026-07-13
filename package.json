@@ -11,7 +11,8 @@
     "migrate:design-url-suffixes": "node scripts/migrate-design-url-suffixes.mjs",
     "copy:designs-from-old-db": "node scripts/copy-designs-from-old-db.mjs",
     "transition:designs-to-new-db": "bash scripts/transition-designs-to-new-db.sh",
-    "estimate:design-transition-storage": "node scripts/estimate-design-transition-storage.mjs"
+    "estimate:design-transition-storage": "node scripts/estimate-design-transition-storage.mjs",
+    "replace-embedded-preview-urls": "node scripts/replace-embedded-preview-urls.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

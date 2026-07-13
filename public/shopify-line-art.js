@@ -1890,7 +1890,7 @@
         const lineArt = cleanLineArt(img, processingProfiles && processingProfiles[index]);
         generatedLineArtVariants[index] = lineArt;
 
-        const displayCanvas = makeTransparentLineCanvas(lineArt, "black");
+        const displayCanvas = makePreviewLineCanvas(lineArt, "black");
         const displayUrl = displayCanvas.toDataURL();
         generatedVariantPreviews[index] = {
           src: displayUrl,
@@ -2534,6 +2534,21 @@
 
       cropCtx.putImageData(transparent, 0, 0);
       return crop;
+    }
+
+    function makePreviewLineCanvas(lineArt, inkColor) {
+      const artwork = makeTransparentLineCanvas(lineArt, inkColor);
+      const topPad = Math.ceil(artwork.height * 0.14);
+      const sidePad = Math.ceil(artwork.width * 0.08);
+      const bottomPad = Math.ceil(artwork.height * 0.08);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = artwork.width + sidePad * 2;
+      canvas.height = artwork.height + topPad + bottomPad;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(artwork, sidePad, topPad);
+      return canvas;
     }
 
     function getLogoRasterStats(data) {
