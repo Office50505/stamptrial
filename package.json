@@ -7,7 +7,11 @@
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "purge-designs": "node scripts/purge-designs.mjs",
-    "backfill-shopify-sizes": "node scripts/backfill-shopify-sizes.mjs"
+    "backfill-shopify-sizes": "node scripts/backfill-shopify-sizes.mjs",
+    "migrate:design-url-suffixes": "node scripts/migrate-design-url-suffixes.mjs",
+    "copy:designs-from-old-db": "node scripts/copy-designs-from-old-db.mjs",
+    "transition:designs-to-new-db": "bash scripts/transition-designs-to-new-db.sh",
+    "estimate:design-transition-storage": "node scripts/estimate-design-transition-storage.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

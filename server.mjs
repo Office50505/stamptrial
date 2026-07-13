@@ -8,6 +8,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const GENERATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const GENERATION_CACHE_VERSION = "line-art-gpt-image-2-low-png-2048-v2";
+const DESIGN_IMAGE_FIELDS = ["originalImageUrl", "chosenVariantUrl", "finalDesignUrl"];
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -101,6 +102,42 @@ function requiredEnv(name) {
     throw new Error(`Missing ${name}`);
   }
   return value;
+}
+
+function getBunnyCdnBaseUrl() {
+  return (process.env.BUNNY_CDN_BASE_URL || "https://stamptrial.b-cdn.net").replace(/\/$/, "");
+}
+
+function getDesignAssetPathPrefix(designId) {
+  return `designs/${designId}/`;
+}
+
+function getDesignAssetBaseUrl(designId) {
+  const cdnBaseUrl = getBunnyCdnBaseUrl();
+  return cdnBaseUrl ? `${cdnBaseUrl}/${getDesignAssetPathPrefix(designId)}` : "";
+}
+
+function toDesignAssetUrl(value, designId) {
+  const asset = String(value || "").trim();
+  if (!asset || !designId) return asset;
+  if (/^(https?:|data:)/i.test(asset)) return asset;
+
+  const cdnBaseUrl = getBunnyCdnBaseUrl();
+  if (!cdnBaseUrl) return asset;
+
+  const pathPrefix = getDesignAssetPathPrefix(designId);
+  return asset.startsWith(pathPrefix)
+    ? `${cdnBaseUrl}/${asset}`
+    : `${getDesignAssetBaseUrl(designId)}${asset}`;
+}
+
+function expandDesignAssetUrls(design) {
+  if (!design) return design;
+  const expanded = { ...design };
+  for (const field of DESIGN_IMAGE_FIELDS) {
+    expanded[field] = toDesignAssetUrl(expanded[field], expanded.designId);
+  }
+  return expanded;
 }
 
 function getMongoClient() {
@@ -867,27 +904,38 @@ app.post("/api/save-design", async (req, res) => {
     if (hasOriginalImage) {
       const originalExt = extensionFromMime(parseDataUrl(originalImageDataUrl).mimeType);
       const variantExt = extensionFromMime(parseDataUrl(chosenVariantDataUrl).mimeType);
-      uploadJobs.push([
-        "originalImageUrl",
-        uploadToBunny(`designs/${designId}/original-${assetKey}.${originalExt}`, originalImageDataUrl)
-      ]);
-      uploadJobs.push([
-        "chosenVariantUrl",
-        uploadToBunny(`designs/${designId}/chosen-variant-${assetKey}.${variantExt}`, chosenVariantDataUrl)
-      ]);
+      const originalFilename = `original-${assetKey}.${originalExt}`;
+      const variantFilename = `chosen-variant-${assetKey}.${variantExt}`;
+      uploadJobs.push({
+        key: "originalImageUrl",
+        filename: originalFilename,
+        promise: uploadToBunny(`designs/${designId}/${originalFilename}`, originalImageDataUrl)
+      });
+      uploadJobs.push({
+        key: "chosenVariantUrl",
+        filename: variantFilename,
+        promise: uploadToBunny(`designs/${designId}/${variantFilename}`, chosenVariantDataUrl)
+      });
     }
     if (hasFinalDesign) {
-      uploadJobs.push([
-        "finalDesignUrl",
-        uploadToBunny(`designs/${designId}/final-design-${assetKey}.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`, finalDesignDataUrl)
-      ]);
+      const finalFilename = `final-design-${assetKey}.${extensionFromMime(parseDataUrl(finalDesignDataUrl).mimeType)}`;
+      uploadJobs.push({
+        key: "finalDesignUrl",
+        filename: finalFilename,
+        promise: uploadToBunny(`designs/${designId}/${finalFilename}`, finalDesignDataUrl)
+      });
     }
 
-    const uploadedEntries = await Promise.all(uploadJobs.map(async ([key, promise]) => [key, await promise]));
+    const uploadedEntries = await Promise.all(
+      uploadJobs.map(async ({ key, filename, promise }) => [key, { filename, url: await promise }])
+    );
     const uploadedUrls = Object.fromEntries(uploadedEntries);
     if (uploadedUrls.chosenVariantUrl && !uploadedUrls.finalDesignUrl) {
       uploadedUrls.finalDesignUrl = uploadedUrls.chosenVariantUrl;
     }
+    const uploadedResponseUrls = Object.fromEntries(
+      Object.entries(uploadedUrls).map(([key, asset]) => [key, asset.url])
+    );
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
@@ -897,9 +945,9 @@ app.post("/api/save-design", async (req, res) => {
       updatedAt: new Date()
     };
 
-    if (uploadedUrls.originalImageUrl) design.originalImageUrl = uploadedUrls.originalImageUrl;
-    if (uploadedUrls.chosenVariantUrl) design.chosenVariantUrl = uploadedUrls.chosenVariantUrl;
-    if (uploadedUrls.finalDesignUrl) design.finalDesignUrl = uploadedUrls.finalDesignUrl;
+    if (uploadedUrls.originalImageUrl) design.originalImageUrl = uploadedUrls.originalImageUrl.filename;
+    if (uploadedUrls.chosenVariantUrl) design.chosenVariantUrl = uploadedUrls.chosenVariantUrl.filename;
+    if (uploadedUrls.finalDesignUrl) design.finalDesignUrl = uploadedUrls.finalDesignUrl.filename;
 
     await db.collection("designs").updateOne(
       { designId },
@@ -911,7 +959,9 @@ app.post("/api/save-design", async (req, res) => {
     );
     dashboardMetricsCache = null;
     broadcastDashboardEvent("design_saved", { designId });
-    res.json({ designId, ...uploadedUrls });
+    res.json({ designId, ...uploadedResponseUrls });
+    dashboardMetricsCache = null;
+    broadcastDashboardEvent("design_saved", { designId });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not save design" });
@@ -1143,10 +1193,11 @@ app.get("/api/design-preview/:designId", async (req, res) => {
       }
     );
 
-    const previewUrl = design?.finalDesignUrl ||
-      design?.chosenVariantUrl ||
-      design?.settings?.selectedVariantPreviewUrl ||
-      design?.originalImageUrl ||
+    const expandedDesign = expandDesignAssetUrls(design);
+    const previewUrl = expandedDesign?.finalDesignUrl ||
+      expandedDesign?.chosenVariantUrl ||
+      expandedDesign?.settings?.selectedVariantPreviewUrl ||
+      expandedDesign?.originalImageUrl ||
       "";
 
     if (!previewUrl) {
