@@ -1114,7 +1114,7 @@ app.get("/api/designs", async (req, res) => {
     if (req.query.cursor) {
       try {
         cursor = JSON.parse(Buffer.from(String(req.query.cursor), "base64url").toString("utf8"));
-        if (!cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
+        if (![0, 1].includes(cursor.readyPriority) || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
       } catch {
         res.status(400).json({ error: "Invalid pagination cursor" });
         return;
@@ -1126,25 +1126,52 @@ app.get("/api/designs", async (req, res) => {
     console.log("Dashboard Mongo acquired", { requestId, mongoMs });
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const baseQuery = buildDashboardFilter(req.query);
+    const readyPriorityExpression = {
+      $cond: [
+        {
+          $and: [
+            { $eq: ["$hasOrder", true] },
+            {
+              $or: [
+                { $eq: ["$workflowStatus", "ready"] },
+                {
+                  $and: [
+                    { $in: [{ $ifNull: ["$workflowStatus", ""] }, ["", "new_order"]] },
+                    { $ne: [{ $ifNull: ["$finalDesignUrl", ""] }, ""] }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        1,
+        0
+      ]
+    };
     const cursorQuery = cursor ? { $or: [
-      { createdAt: { $lt: new Date(cursor.createdAt) } },
-      { createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
+      { dashboardReadyPriority: { $lt: cursor.readyPriority } },
+      { dashboardReadyPriority: cursor.readyPriority, createdAt: { $lt: new Date(cursor.createdAt) } },
+      { dashboardReadyPriority: cursor.readyPriority, createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
     ] } : null;
-    const query = cursorQuery ? (Object.keys(baseQuery).length ? { $and: [baseQuery, cursorQuery] } : cursorQuery) : baseQuery;
+    const pipeline = [
+      { $match: baseQuery },
+      { $addFields: { dashboardReadyPriority: readyPriorityExpression } },
+      ...(cursorQuery ? [{ $match: cursorQuery }] : []),
+      { $sort: { dashboardReadyPriority: -1, createdAt: -1, designId: -1 } },
+      { $limit: limit + 1 },
+      { $project: {
+        _id: 0, dashboardReadyPriority: 1, designId: 1, hasOrder: 1, workflowStatus: 1,
+        originalImageUrl: 1, chosenVariantUrl: 1, finalDesignUrl: 1,
+        "settings.selectedSize": 1, "settings.aboveText": 1,
+        "settings.belowText": 1, "settings.inkColor": 1,
+        "settings.notesForDesigner": 1,
+        orderId: 1, orderName: 1, orderNumber: 1,
+        orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
+      } }
+    ];
     const queryStartedAt = Date.now();
     console.log("Dashboard designs query executing", { requestId });
-    const designsQuery = db.collection("designs").find(query, { projection: {
-      _id: 0, designId: 1, hasOrder: 1, workflowStatus: 1,
-      originalImageUrl: 1, chosenVariantUrl: 1, finalDesignUrl: 1,
-      "settings.selectedSize": 1, "settings.aboveText": 1,
-      "settings.belowText": 1, "settings.inkColor": 1,
-      "settings.notesForDesigner": 1,
-      orderId: 1, orderName: 1, orderNumber: 1,
-      orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
-    }}).sort({ createdAt: -1, designId: -1 })
-      .limit(limit + 1)
-      .maxTimeMS(8000)
-      .toArray();
+    const designsQuery = db.collection("designs").aggregate(pipeline, { maxTimeMS: 8000 }).toArray();
     let queryTimeout;
     const results = await Promise.race([
       designsQuery,
@@ -1154,10 +1181,11 @@ app.get("/api/designs", async (req, res) => {
     ]).finally(() => clearTimeout(queryTimeout));
 
     const hasMore = results.length > limit;
-    const designs = (hasMore ? results.slice(0, limit) : results).map(expandDesignAssetUrls);
-    const last = designs.at(-1);
+    const page = hasMore ? results.slice(0, limit) : results;
+    const last = page.at(-1);
+    const designs = page.map(({ dashboardReadyPriority: _priority, ...design }) => expandDesignAssetUrls(design));
     const nextCursor = hasMore && last?.createdAt && last?.designId
-      ? Buffer.from(JSON.stringify({ createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
+      ? Buffer.from(JSON.stringify({ readyPriority: Number(last.dashboardReadyPriority) || 0, createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
       : null;
     const queryMs = msSince(queryStartedAt);
     const totalMs = msSince(startedAt);
