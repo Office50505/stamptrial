@@ -1132,7 +1132,7 @@ app.get("/api/designs", async (req, res) => {
     ]).finally(() => clearTimeout(queryTimeout));
 
     const hasMore = results.length > limit;
-    const designs = hasMore ? results.slice(0, limit) : results;
+    const designs = (hasMore ? results.slice(0, limit) : results).map(expandDesignAssetUrls);
     const last = designs.at(-1);
     const nextCursor = hasMore && last?.createdAt && last?.designId
       ? Buffer.from(JSON.stringify({ hasOrder: Boolean(last.hasOrder), createdAt: new Date(last.createdAt).toISOString(), designId: last.designId })).toString("base64url")
