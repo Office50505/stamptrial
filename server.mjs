@@ -765,42 +765,77 @@ app.post("/api/generate-line-art", async (req, res) => {
         });
       });
 
-    let providerInput = "data-uri";
+    let providerInput = "unknown";
     const providerStartedAt = Date.now();
-    let { response, data } = await requestLineArtProvider(imageDataUrl);
-    timings.providerDirectMs = msSince(providerStartedAt);
+
+    const [directResult, fallbackResult] = await Promise.allSettled([
+      // Attempt 1: direct request using the data URI
+      requestLineArtProvider(imageDataUrl).then((r) => {
+        timings.providerDirectMs = msSince(providerStartedAt);
+        return { input: "data-uri", result: r };
+      }),
+
+      // Attempt 2: upload to Bunny, wait for public availability, then request
+      (async () => {
+        const fallbackStartedAt = Date.now();
+        const sourceImageUrl = await sourceUploadPromise;
+        if (!timings.bunnyUploadMs) timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
+        let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
+
+        const publicWaitStartedAt = Date.now();
+        await waitForPublicImageUrl(providerImageUrl);
+        timings.bunnyPublicWaitMs = msSince(publicWaitStartedAt);
+
+        const fallbackProviderStartedAt = Date.now();
+        let fallbackResponse = await requestLineArtProvider(providerImageUrl);
+        timings.providerFallbackMs = msSince(fallbackProviderStartedAt);
+
+        if (!fallbackResponse.response.ok && fallbackResponse.response.status === 422 && isProviderImageDownloadError(fallbackResponse.data)) {
+          const retryStartedAt = Date.now();
+          await sleep(1200);
+          providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
+          await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
+          fallbackResponse = await requestLineArtProvider(providerImageUrl);
+          timings.providerRetryMs = msSince(retryStartedAt);
+        }
+
+        timings.fallbackTotalMs = msSince(fallbackStartedAt);
+        return { input: "bunny-url", result: fallbackResponse };
+      })().catch((error) => {
+        throw { input: "bunny-fallback", error };
+      })
+    ]);
+
+    timings.providerMs = msSince(providerStartedAt);
+
+    // Pick the successful result: direct wins if both succeed, otherwise fallback
+    let { response, data } = { response: { ok: false }, data: {} };
+
+    if (directResult.status === "fulfilled" && directResult.value.result.response.ok) {
+      ({ response, data } = directResult.value.result);
+      providerInput = directResult.value.input;
+    } else if (fallbackResult.status === "fulfilled" && fallbackResult.value.result.response.ok) {
+      ({ response, data } = fallbackResult.value.result);
+      providerInput = fallbackResult.value.input;
+    } else if (directResult.status === "fulfilled") {
+      ({ response, data } = directResult.value.result);
+      providerInput = directResult.value.input;
+    } else if (fallbackResult.status === "rejected") {
+      console.warn("Line art fallback path failed", {
+        requestId,
+        detail: fallbackResult.reason && fallbackResult.reason.error
+          ? fallbackResult.reason.error.message || String(fallbackResult.reason.error)
+          : fallbackResult.reason
+      });
+    }
 
     if (!response.ok) {
-      const fallbackStartedAt = Date.now();
-      console.warn("Direct line art provider request failed; falling back to Bunny URL", {
+      console.warn("Direct and fallback line art provider requests failed", {
         requestId,
         status: response.status,
         detail: data.detail || data.error || data.message || data,
         timings
       });
-
-      const sourceImageUrl = await sourceUploadPromise;
-      if (!timings.bunnyUploadMs) timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
-      let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
-
-      const publicWaitStartedAt = Date.now();
-      await waitForPublicImageUrl(providerImageUrl);
-      timings.bunnyPublicWaitMs = msSince(publicWaitStartedAt);
-
-      providerInput = "bunny-url";
-      const fallbackProviderStartedAt = Date.now();
-      ({ response, data } = await requestLineArtProvider(providerImageUrl));
-      timings.providerFallbackMs = msSince(fallbackProviderStartedAt);
-      timings.fallbackTotalMs = msSince(fallbackStartedAt);
-
-      if (!response.ok && response.status === 422 && isProviderImageDownloadError(data)) {
-        const retryStartedAt = Date.now();
-        await sleep(1200);
-        providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
-        await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
-        ({ response, data } = await requestLineArtProvider(providerImageUrl));
-        timings.providerRetryMs = msSince(retryStartedAt);
-      }
     }
 
     if (!response.ok) {
