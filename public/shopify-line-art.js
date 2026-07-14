@@ -1940,6 +1940,11 @@
       if (!savedDesignId) savedDesignId = createLocalDesignId();
       checkoutThumbnailUrl = "";
       syncCartProperties();
+
+      // Trigger save to database when variant is selected
+      saveFinalDesignForCart({ silent: true }).catch((error) => {
+        console.warn("Design save on variant selection failed:", error);
+      });
       checkoutThumbnailPromise = saveCheckoutThumbnail(index).catch((error) => {
         console.warn("Checkout thumbnail upload skipped:", error);
         return false;
