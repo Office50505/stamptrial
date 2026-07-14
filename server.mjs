@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
 import { MongoClient } from "mongodb";
 import crypto from "node:crypto";
 
@@ -56,16 +55,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-app.use(cors({
-  origin(origin, callback) {
-    if (isAllowedOrigin(origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error("Origin not allowed"));
-  }
-}));
 
 let mongoClientPromise;
 let designIndexesPromise;
