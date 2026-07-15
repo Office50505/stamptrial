@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { MongoClient } from "mongodb";
 import crypto from "node:crypto";
+import { deflateRawSync } from "node:zlib";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -445,6 +446,8 @@ function dashboardAuth(req, res, next) {
     req.path === "/api/designs" ||
     req.path === "/api/design-count" ||
     req.path === "/api/design-metrics" ||
+    req.path === "/api/design-export.csv" ||
+    req.path === "/api/design-export.zip" ||
     req.path === "/api/dashboard-events" ||
     /^\/api\/designs\/[^/]+\/status$/.test(req.path);
   if (!protectsDashboard) {
@@ -1044,7 +1047,7 @@ function escapeRegex(value) {
   return String(value || "").replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
 }
 
-function buildDashboardFilter(query = {}) {
+function buildDashboardFilter(query = {}, { ignoreStatus = false } = {}) {
   const filters = [];
   const search = String(query.q || "").trim();
   if (search) {
@@ -1061,17 +1064,10 @@ function buildDashboardFilter(query = {}) {
   if (query.final === "no") filters.push({ $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] });
 
   const status = String(query.status || "all");
-  const hasFinal = { finalDesignUrl: { $exists: true, $nin: [null, ""] } };
   const noFinal = { $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] };
-  const automatic = { $or: [{ workflowStatus: { $exists: false } }, { workflowStatus: { $in: [null, "", "new_order"] } }] };
-  if (status === "ordered") filters.push({ hasOrder: true });
-  if (status === "awaiting_order") filters.push({ hasOrder: false });
-  if (status === "new_order") filters.push({ $and: [{ hasOrder: true }, automatic, noFinal] });
-  if (status === "in_production") filters.push({ workflowStatus: "in_production" });
-  if (status === "ready") filters.push({ $or: [{ workflowStatus: "ready" }, { $and: [automatic, hasFinal] }] });
-  if (status === "completed") filters.push({ workflowStatus: "completed" });
-  if (status === "needs_attention") filters.push({ $and: [{ hasOrder: true }, { workflowStatus: { $ne: "completed" } }, noFinal] });
-
+  if (!ignoreStatus && status === "ordered") filters.push({ hasOrder: true });
+  if (!ignoreStatus && status === "abandoned") filters.push({ hasOrder: false });
+  if (!ignoreStatus && status === "needs_attention") filters.push({ $and: [{ hasOrder: true }, noFinal] });
   const days = Number(query.days);
   if ([1, 7, 30, 90].includes(days)) filters.push({ createdAt: { $gte: new Date(Date.now() - days * 86_400_000) } });
   return filters.length ? { $and: filters } : {};
@@ -1088,30 +1084,127 @@ app.get("/api/dashboard-events", (req, res) => {
   req.on("close", () => dashboardEventClients.delete(res));
 });
 
-app.get("/api/design-metrics", async (_req, res) => {
+app.get("/api/design-metrics", async (req, res) => {
   try {
-    if (dashboardMetricsCache && dashboardMetricsCache.expiresAt > Date.now()) {
-      res.json({ metrics: dashboardMetricsCache.metrics, cached: true });
-      return;
-    }
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const collection = db.collection("designs");
-    const [total, ordered, finalReady, needsAttention] = await Promise.all([
-      collection.countDocuments({}),
-      collection.countDocuments({ hasOrder: true }),
-      collection.countDocuments({ finalDesignUrl: { $exists: true, $nin: [null, ""] } }),
-      collection.countDocuments({ hasOrder: true, workflowStatus: { $ne: "completed" }, $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] })
+    const base = buildDashboardFilter(req.query);
+    const scoped = (condition) => Object.keys(base).length ? { $and: [base, condition] } : condition;
+    const noFinal = { $or: [{ finalDesignUrl: { $exists: false } }, { finalDesignUrl: { $in: [null, ""] } }] };
+    const [total, ordered, abandoned, needsAttention] = await Promise.all([
+      collection.countDocuments(base),
+      collection.countDocuments(scoped({ hasOrder: true })),
+      collection.countDocuments(scoped({ hasOrder: false })),
+      collection.countDocuments(scoped({ $and: [{ hasOrder: true }, noFinal] }))
     ]);
-    const metrics = { total, ordered, awaiting: total - ordered, finalReady, needsAttention };
-    dashboardMetricsCache = { metrics, expiresAt: Date.now() + 30_000 };
-    res.json({ metrics });
+    res.json({ metrics: { total, ordered, abandoned, needsAttention } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not load dashboard metrics" });
   }
 });
+function csvCell(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, " ");
+  return `"${text.replace(/"/g, '""')}"`;
+}
 
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createZip(files) {
+  const local = [], central = [];
+  let offset = 0;
+  for (const file of files) {
+    const name = Buffer.from(file.name.replace(/[^a-zA-Z0-9._-]/g, "_"));
+    const data = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data);
+    const packed = deflateRawSync(data);
+    const crc = crc32(data);
+    const header = Buffer.alloc(30);
+    header.writeUInt32LE(0x04034b50, 0); header.writeUInt16LE(20, 4); header.writeUInt16LE(0, 6);
+    header.writeUInt16LE(8, 8); header.writeUInt32LE(crc, 14); header.writeUInt32LE(packed.length, 18);
+    header.writeUInt32LE(data.length, 22); header.writeUInt16LE(name.length, 26);
+    local.push(header, name, packed);
+    const directory = Buffer.alloc(46);
+    directory.writeUInt32LE(0x02014b50, 0); directory.writeUInt16LE(20, 4); directory.writeUInt16LE(20, 6);
+    directory.writeUInt16LE(0, 8); directory.writeUInt16LE(8, 10); directory.writeUInt32LE(crc, 16);
+    directory.writeUInt32LE(packed.length, 20); directory.writeUInt32LE(data.length, 24);
+    directory.writeUInt16LE(name.length, 28); directory.writeUInt32LE(offset, 42);
+    central.push(directory, name);
+    offset += header.length + name.length + packed.length;
+  }
+  const centralSize = central.reduce((sum, part) => sum + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(files.length, 8); end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralSize, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...local, ...central, end]);
+}
+
+async function exportDesigns(req, limit = 250) {
+  const client = await getMongoClient();
+  const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+  return db.collection("designs").find(buildDashboardFilter(req.query)).sort({ createdAt: -1 }).limit(limit).project({
+    _id: 0, designId: 1, hasOrder: 1, orderName: 1, orderNumber: 1, orderCreatedAt: 1,
+    customerName: 1, customerEmail: 1, createdAt: 1, finalDesignUrl: 1, originalImageUrl: 1,
+    "settings.selectedSize": 1, "settings.aboveText": 1, "settings.belowText": 1,
+    "settings.inkColor": 1, "settings.notesForDesigner": 1
+  }).toArray();
+}
+
+function designsCsv(designs) {
+  const header = ["Status","Order","Design ID","Customer","Email","Size","Above text","Below text","Ink color","Designer notes","Order date","Saved date","Final artwork"];
+  const rows = designs.map((d) => {
+    const status = d.hasOrder ? (d.finalDesignUrl ? "Ordered" : "Needs Attention") : "Abandoned";
+    const s = d.settings || {};
+    return [status,d.orderName||d.orderNumber||"",d.designId,d.customerName,d.customerEmail,s.selectedSize,s.aboveText,s.belowText,s.inkColor,s.notesForDesigner,d.orderCreatedAt,d.createdAt,d.finalDesignUrl].map(csvCell).join(",");
+  });
+  return [header.map(csvCell).join(","), ...rows].join("\r\n");
+}
+
+app.get("/api/design-export.csv", async (req, res) => {
+  try {
+    const designs = await exportDesigns(req);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="stamp-orders-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send(designsCsv(designs));
+  } catch (error) {
+    console.error("CSV export failed", error);
+    res.status(500).json({ error: "Could not export CSV" });
+  }
+});
+
+app.get("/api/design-export.zip", async (req, res) => {
+  try {
+    const designs = await exportDesigns(req, 50);
+    const files = [{ name: "orders.csv", data: designsCsv(designs) }];
+    for (const design of designs) {
+      const url = expandDesignAssetUrls(design).finalDesignUrl;
+      if (!url) continue;
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!response.ok) continue;
+        const type = response.headers.get("content-type") || "image/png";
+        const extension = type.includes("jpeg") ? "jpg" : type.includes("webp") ? "webp" : "png";
+        files.push({ name: `${design.orderName || design.designId}-final.${extension}`, data: Buffer.from(await response.arrayBuffer()) });
+      } catch (error) {
+        console.warn("Skipping export artwork", { designId: design.designId, error: error.message });
+      }
+    }
+    const zip = createZip(files);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="stamp-orders-${new Date().toISOString().slice(0,10)}.zip"`);
+    res.send(zip);
+  } catch (error) {
+    console.error("ZIP export failed", error);
+    res.status(500).json({ error: "Could not export ZIP" });
+  }
+});
 app.get("/api/design-count", async (req, res) => {
   try {
     const client = await getMongoClient();
@@ -1138,7 +1231,7 @@ app.get("/api/designs", async (req, res) => {
     if (req.query.cursor) {
       try {
         cursor = JSON.parse(Buffer.from(String(req.query.cursor), "base64url").toString("utf8"));
-        if (![0, 1].includes(cursor.readyPriority) || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
+        if (![0, 1, 2].includes(cursor.readyPriority) || !cursor.createdAt || !cursor.designId || Number.isNaN(new Date(cursor.createdAt).getTime())) throw new Error("Invalid cursor");
       } catch {
         res.status(400).json({ error: "Invalid pagination cursor" });
         return;
@@ -1151,28 +1244,20 @@ app.get("/api/designs", async (req, res) => {
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const baseQuery = buildDashboardFilter(req.query);
     const readyPriorityExpression = {
-      $cond: [
-        {
-          $and: [
-            { $eq: ["$hasOrder", true] },
-            {
-              $or: [
-                { $eq: ["$workflowStatus", "ready"] },
-                {
-                  $and: [
-                    { $in: [{ $ifNull: ["$workflowStatus", ""] }, ["", "new_order"]] },
-                    { $ne: [{ $ifNull: ["$finalDesignUrl", ""] }, ""] }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        1,
-        0
-      ]
-    };
-    const cursorQuery = cursor ? { $or: [
+      $switch: {
+        branches: [
+          {
+            case: { $and: [
+              { $eq: ["$hasOrder", true] },
+              { $ne: [{ $ifNull: ["$finalDesignUrl", ""] }, ""] }
+            ] },
+            then: 2
+          },
+          { case: { $eq: ["$hasOrder", true] }, then: 1 }
+        ],
+        default: 0
+      }
+    };    const cursorQuery = cursor ? { $or: [
       { dashboardReadyPriority: { $lt: cursor.readyPriority } },
       { dashboardReadyPriority: cursor.readyPriority, createdAt: { $lt: new Date(cursor.createdAt) } },
       { dashboardReadyPriority: cursor.readyPriority, createdAt: new Date(cursor.createdAt), designId: { $lt: cursor.designId } }
