@@ -699,6 +699,17 @@ app.post("/api/generate-line-art", async (req, res) => {
   const requestId = crypto.randomUUID().slice(0, 8);
   const requestStartedAt = Date.now();
   const timings = {};
+  const logStage = (stage, startedAt, extra = {}) => {
+    const durationMs = msSince(startedAt);
+    console.info("Line art generation stage", {
+      requestId,
+      stage,
+      durationMs,
+      totalMs: msSince(requestStartedAt),
+      ...extra
+    });
+    return durationMs;
+  };
 
   try {
     const { imageDataUrl, forceRegenerate = false } = req.body || {};
@@ -718,10 +729,12 @@ app.post("/api/generate-line-art", async (req, res) => {
     timings.parseMs = msSince(parseStartedAt);
     timings.sourceKb = Math.round(parsedSource.buffer.length / 1024);
     const generationCacheKey = getGenerationCacheKey(parsedSource);
+    const mongoStartedAt = Date.now();
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
     const generationCache = db.collection("generation_cache");
     const now = new Date();
+    timings.mongoConnectMs = logStage("mongo connected", mongoStartedAt);
 
     if (!forceRegenerate) {
       const cacheStartedAt = Date.now();
@@ -731,6 +744,9 @@ app.post("/api/generate-line-art", async (req, res) => {
         imageUrls: { $type: "array", $ne: [] }
       });
       timings.cacheLookupMs = msSince(cacheStartedAt);
+      logStage("cache lookup completed", cacheStartedAt, {
+        cacheHit: Boolean(cachedGeneration)
+      });
 
       if (cachedGeneration) {
         timings.totalMs = msSince(requestStartedAt);
@@ -749,15 +765,15 @@ app.post("/api/generate-line-art", async (req, res) => {
     }
 
     const sourceExt = extensionFromMime(parsedSource.mimeType);
-    const bunnyUploadStartedAt = Date.now();
-    const sourceUploadPromise = uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
-    sourceUploadPromise
+    let bunnyUploadStartedAt;
+    let sourceUploadPromise;
+    const getSourceUploadPromise = () => {
+      if (sourceUploadPromise) return sourceUploadPromise;
+      bunnyUploadStartedAt = Date.now();
+      sourceUploadPromise = uploadToBunny(`generation-inputs/${crypto.randomUUID()}.${sourceExt}`, imageDataUrl);
+      sourceUploadPromise
       .then(() => {
-        timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
-        console.info("Generation input background upload completed", {
-          requestId,
-          bunnyUploadMs: timings.bunnyUploadMs
-        });
+        timings.bunnyUploadMs = logStage("fallback source uploaded", bunnyUploadStartedAt);
       })
       .catch((error) => {
         timings.bunnyUploadFailedMs = msSince(bunnyUploadStartedAt);
@@ -767,31 +783,52 @@ app.post("/api/generate-line-art", async (req, res) => {
           error: error.message || String(error)
         });
       });
+      return sourceUploadPromise;
+    };
 
     let providerInput = "unknown";
     const providerStartedAt = Date.now();
+    const directProviderPromise = requestLineArtProvider(imageDataUrl);
 
     const [directResult, fallbackResult] = await Promise.allSettled([
       // Attempt 1: direct request using the data URI
-      requestLineArtProvider(imageDataUrl).then((r) => {
+      directProviderPromise.then((r) => {
         timings.providerDirectMs = msSince(providerStartedAt);
+        logStage("direct provider request completed", providerStartedAt, {
+          status: r.response.status,
+          ok: r.response.ok
+        });
         return { input: "data-uri", result: r };
       }),
 
       // Attempt 2: upload to Bunny, wait for public availability, then request
       (async () => {
+        const directResponse = await directProviderPromise;
+        if (directResponse.response.ok) {
+          return { input: "data-uri", result: directResponse };
+        }
+        console.warn("Direct provider request failed; starting CDN fallback", {
+          requestId,
+          status: directResponse.response.status,
+          totalMs: msSince(requestStartedAt)
+        });
         const fallbackStartedAt = Date.now();
-        const sourceImageUrl = await sourceUploadPromise;
+        const sourceImageUrl = await getSourceUploadPromise();
         if (!timings.bunnyUploadMs) timings.bunnyUploadMs = msSince(bunnyUploadStartedAt);
         let providerImageUrl = addCacheBuster(sourceImageUrl, crypto.randomUUID());
 
         const publicWaitStartedAt = Date.now();
         await waitForPublicImageUrl(providerImageUrl);
         timings.bunnyPublicWaitMs = msSince(publicWaitStartedAt);
+        logStage("fallback source became public", publicWaitStartedAt);
 
         const fallbackProviderStartedAt = Date.now();
         let fallbackResponse = await requestLineArtProvider(providerImageUrl);
         timings.providerFallbackMs = msSince(fallbackProviderStartedAt);
+        logStage("fallback provider request completed", fallbackProviderStartedAt, {
+          status: fallbackResponse.response.status,
+          ok: fallbackResponse.response.ok
+        });
 
         if (!fallbackResponse.response.ok && fallbackResponse.response.status === 422 && isProviderImageDownloadError(fallbackResponse.data)) {
           const retryStartedAt = Date.now();
@@ -800,6 +837,10 @@ app.post("/api/generate-line-art", async (req, res) => {
           await waitForPublicImageUrl(providerImageUrl, { attempts: 10, delayMs: 600 });
           fallbackResponse = await requestLineArtProvider(providerImageUrl);
           timings.providerRetryMs = msSince(retryStartedAt);
+          logStage("fallback provider retry completed", retryStartedAt, {
+            status: fallbackResponse.response.status,
+            ok: fallbackResponse.response.ok
+          });
         }
 
         timings.fallbackTotalMs = msSince(fallbackStartedAt);
