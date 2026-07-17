@@ -27,6 +27,7 @@
     let isSavingCartDesign = false;
     let isPreparingMockups = false;
     let cartDesignSavePromise = null;
+    let designRegistrationPromise = null;
     let selectedDesignAssetsSavePromise = null;
     let checkoutThumbnailPromise = null;
     let checkoutThumbnailUrl = "";
@@ -387,6 +388,31 @@
       return Boolean(savedDesignId && finalDesignImageUrl);
     }
 
+    async function registerDesignForCart() {
+      if (!savedDesignId) return false;
+      const response = await fetch(`${BACKEND_BASE_URL}/api/save-design`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designId: savedDesignId, lightweight: true, settings: getDesignSettings() })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Design registration failed.");
+      savedDesignId = data.designId || savedDesignId;
+      syncCartProperties();
+      return true;
+    }
+
+    function ensureDesignRegistration() {
+      if (!designRegistrationPromise) {
+        designRegistrationPromise = registerDesignForCart().catch((error) => {
+          designRegistrationPromise = null;
+          console.warn("Design registration failed:", error);
+          return false;
+        });
+      }
+      return designRegistrationPromise;
+    }
+
     async function saveFinalDesignForCart({ silent = false } = {}) {
       if (!sourceImageDataUrl || !selectedVariant) return false;
       if (finalDesignImageUrl && lastSavedCartDesignRevision === cartDesignRevision) return true;
@@ -466,10 +492,26 @@
             return;
           }
 
-          syncCartProperties();
-          if (!checkoutThumbnailPromise || checkoutThumbnailUrl) return;
           event.preventDefault();
           event.stopPropagation();
+          setCartSubmitLoading(form, true, "Saving design...");
+          const registered = await ensureDesignRegistration();
+          if (!registered) {
+            setCartSubmitLoading(form, false);
+            alert("We could not save your design. Please try Add to Cart again.");
+            return;
+          }
+          if (!checkoutThumbnailPromise || checkoutThumbnailUrl) {
+            syncCartProperties();
+            form.dataset.lineArtThumbnailSubmitting = "true";
+            if (typeof form.requestSubmit === "function") form.requestSubmit();
+            else form.submit();
+            setTimeout(() => {
+              form.dataset.lineArtThumbnailSubmitting = "false";
+              setCartSubmitLoading(form, false);
+            }, 1000);
+            return;
+          }
           setCartSubmitLoading(form, true, "Preparing preview…");
           await Promise.race([
             checkoutThumbnailPromise.catch(() => false),
@@ -618,6 +660,7 @@
       cartDesignRevision++;
       lastSavedCartDesignRevision = -1;
       savedDesignId = "";
+      designRegistrationPromise = null;
       finalDesignImageUrl = "";
       selectedVariant = null;
       selectedVariantIndex = -1;
@@ -1938,6 +1981,7 @@
       selectedVariantIndex = index;
       selectedVariant = generatedLineArtVariants[index];
       if (!savedDesignId) savedDesignId = createLocalDesignId();
+      designRegistrationPromise = ensureDesignRegistration();
       checkoutThumbnailUrl = "";
       syncCartProperties();
 
@@ -2247,6 +2291,7 @@
       cartDesignRevision++;
       lastSavedCartDesignRevision = -1;
       savedDesignId = "";
+      designRegistrationPromise = null;
       finalDesignImageUrl = "";
       generatedLineArtVariants = [];
       generatedVariantPreviews = [];

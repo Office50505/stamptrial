@@ -315,12 +315,24 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
-    const updateResult = await db.collection("designs").updateMany(
-      { designId: { $in: designIds } },
-      {
-        $set: orderPayload,
-        ...(webhookId ? { $addToSet: { webhookIds: webhookId } } : {})
-      }
+    const updateResult = await db.collection("designs").bulkWrite(
+      designIds.map((designId) => ({
+        updateOne: {
+          filter: { designId },
+          update: {
+            $set: orderPayload,
+            $setOnInsert: {
+              designId,
+              createdAt: new Date(),
+              workflowStatus: "new_order",
+              saveStatus: "needs_attention"
+            },
+            ...(webhookId ? { $addToSet: { webhookIds: webhookId } } : {})
+          },
+          upsert: true
+        }
+      })),
+      { ordered: false }
     );
 
     const sizeUpdates = lineItems.map((lineItem) => {
@@ -344,6 +356,7 @@ app.post("/api/shopify/orders-create", express.raw({ type: "application/json", l
       designIds,
       matchedCount: updateResult.matchedCount,
       modifiedCount: updateResult.modifiedCount,
+      upsertedCount: updateResult.upsertedCount,
       webhookId
     });
 
