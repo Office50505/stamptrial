@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.stamptrial.mongodb-backup</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/zohershakir/stamptrial-backups/bin/backup-mongodb-local.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/zohershakir/stamptrial-backups</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ENV_FILE</key>
+    <string>/Users/zohershakir/stamptrial-backups/mongodb.env</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>15</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/zohershakir/stamptrial-backups/mongodb/backup.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/zohershakir/stamptrial-backups/mongodb/backup.err.log</string>
+</dict>
+</plist>

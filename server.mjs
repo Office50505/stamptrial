@@ -5,10 +5,19 @@ import crypto from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 
 const app = express();
+app.set("trust proxy", parseTrustProxySetting(process.env.TRUST_PROXY));
 const port = Number(process.env.PORT || 3000);
 const GENERATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const GENERATION_CACHE_VERSION = "line-art-gpt-image-2-low-png-2048-v2";
 const DESIGN_IMAGE_FIELDS = ["originalImageUrl", "chosenVariantUrl", "finalDesignUrl"];
+const visitorGeoCache = new Map();
+
+function parseTrustProxySetting(value) {
+  if (!value) return 1;
+  if (/^(true|false)$/i.test(value)) return value.toLowerCase() === "true";
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : value;
+}
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -128,6 +137,121 @@ function expandDesignAssetUrls(design) {
     expanded[field] = toDesignAssetUrl(expanded[field], expanded.designId);
   }
   return expanded;
+}
+
+function firstHeaderValue(req, names) {
+  for (const name of names) {
+    const value = req.get(name);
+    if (value) return String(value).split(",")[0].trim();
+  }
+  return "";
+}
+
+function decodeHeaderValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  try {
+    return decodeURIComponent(text.replace(/\+/g, "%20")).trim();
+  } catch {
+    return text;
+  }
+}
+
+function normalizeIp(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.replace(/^::ffff:/, "");
+}
+
+function isPrivateIp(ip) {
+  const value = normalizeIp(ip).toLowerCase();
+  if (!value || value === "unknown") return true;
+  if (value === "::1" || value === "127.0.0.1" || value === "localhost") return true;
+  if (/^(10\.|192\.168\.|169\.254\.)/.test(value)) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(value)) return true;
+  if (/^(fc|fd)[0-9a-f]{2}:/i.test(value) || value.startsWith("fe80:")) return true;
+  return false;
+}
+
+function getRequestIp(req) {
+  return normalizeIp(
+    firstHeaderValue(req, ["cf-connecting-ip", "true-client-ip", "x-real-ip", "x-forwarded-for"]) ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    ""
+  );
+}
+
+function getRequestGeoFromHeaders(req) {
+  const city = decodeHeaderValue(firstHeaderValue(req, [
+    "cf-ipcity",
+    "x-vercel-ip-city",
+    "x-appengine-city",
+    "x-geoip-city",
+    "cloudfront-viewer-city"
+  ]));
+  const region = decodeHeaderValue(firstHeaderValue(req, [
+    "cf-region",
+    "x-vercel-ip-country-region",
+    "x-appengine-region",
+    "x-geoip-region",
+    "cloudfront-viewer-country-region-name"
+  ]));
+  const country = decodeHeaderValue(firstHeaderValue(req, [
+    "cf-ipcountry",
+    "x-vercel-ip-country",
+    "x-appengine-country",
+    "x-geoip-country",
+    "cloudfront-viewer-country"
+  ]));
+  return { city, region, country };
+}
+
+async function lookupIpInfo(ip) {
+  const token = process.env.IPINFO_TOKEN;
+  if (!token || isPrivateIp(ip)) return {};
+
+  const cached = visitorGeoCache.get(ip);
+  if (cached && cached.expiresAt > Date.now()) return cached.geo;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1200);
+    const response = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json?token=${encodeURIComponent(token)}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout));
+    if (!response.ok) return {};
+    const data = await response.json();
+    const geo = {
+      city: String(data.city || "").trim(),
+      region: String(data.region || "").trim(),
+      country: String(data.country || "").trim()
+    };
+    visitorGeoCache.set(ip, { geo, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+    return geo;
+  } catch (error) {
+    console.warn("Visitor IP lookup failed", { ip, error: error.message || String(error) });
+    return {};
+  }
+}
+
+async function getVisitorMetadata(req) {
+  const ip = getRequestIp(req);
+  const headerGeo = getRequestGeoFromHeaders(req);
+  const lookupGeo = headerGeo.city ? {} : await lookupIpInfo(ip);
+  const city = headerGeo.city || lookupGeo.city || "";
+  const region = headerGeo.region || lookupGeo.region || "";
+  const country = headerGeo.country || lookupGeo.country || "";
+
+  return {
+    ip,
+    city,
+    region,
+    country,
+    location: [city, region, country].filter(Boolean).join(", "),
+    capturedAt: new Date()
+  };
 }
 
 function isEmbeddedDataImage(value) {
@@ -421,7 +545,7 @@ app.post("/api/dashboard-login", (req, res) => {
     return;
   }
 
-  const key = req.ip || req.socket.remoteAddress || "unknown";
+  const key = getRequestIp(req) || "unknown";
   const now = Date.now();
   const attempt = dashboardLoginAttempts.get(key);
   if (attempt && attempt.resetAt > now && attempt.count >= 10) {
@@ -1044,6 +1168,7 @@ app.post("/api/save-design", async (req, res) => {
 
     const client = await getMongoClient();
     const db = client.db(process.env.MONGODB_DB_NAME || "stamptrial");
+    const visitor = await getVisitorMetadata(req);
     const design = {
       designId,
       settings: sanitizeDesignSettings(settings, selectedVariantPreviewFallback),
@@ -1057,8 +1182,8 @@ app.post("/api/save-design", async (req, res) => {
     await db.collection("designs").updateOne(
       { designId },
       {
-        $set: design,
-        $setOnInsert: { createdAt: new Date(), hasOrder: false }
+        $set: { ...design, lastVisitor: visitor },
+        $setOnInsert: { createdAt: new Date(), hasOrder: false, visitor }
       },
       { upsert: true }
     );
@@ -1110,7 +1235,9 @@ function buildDashboardFilter(query = {}, { ignoreStatus = false } = {}) {
       { designId: pattern }, { orderName: pattern }, { orderNumber: pattern },
       { customerName: pattern }, { customerEmail: pattern },
       { "settings.aboveText": pattern }, { "settings.belowText": pattern },
-      { "settings.notesForDesigner": pattern }
+      { "settings.notesForDesigner": pattern },
+      { "visitor.ip": pattern }, { "visitor.city": pattern }, { "visitor.location": pattern },
+      { "lastVisitor.ip": pattern }, { "lastVisitor.city": pattern }, { "lastVisitor.location": pattern }
     ] });
   }
   if (query.size) filters.push({ "settings.selectedSize": String(query.size) });
@@ -1329,7 +1456,7 @@ app.get("/api/designs", async (req, res) => {
         "settings.belowText": 1, "settings.inkColor": 1,
         "settings.notesForDesigner": 1,
         orderId: 1, orderName: 1, orderNumber: 1,
-        orderCreatedAt: 1, customerEmail: 1, customerName: 1, createdAt: 1
+        orderCreatedAt: 1, customerEmail: 1, customerName: 1, visitor: 1, lastVisitor: 1, createdAt: 1
       } }
     ];
     const queryStartedAt = Date.now();
