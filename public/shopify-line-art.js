@@ -44,7 +44,7 @@
     let cartDesignRetryCount = 0;
     let selectedVariantIndex = -1;
     let currentGenerationCacheKey = "";
-    const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://stamptrial-production.up.railway.app").replace(/\/$/, "");
+    const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://gyanbaaz.in").replace(/\/$/, "");
     const GENERATION_SESSION_CACHE_PREFIX = "lineArtGenerationCache:";
     const GENERATION_LAST_SESSION_CACHE_KEY = "lineArtGenerationCache:last";
     const GENERATION_SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;

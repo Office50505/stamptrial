@@ -1,7 +1,7 @@
-{% assign line_art_version = '20260722-uploader-progressive-timeouts-1' %}
+{% assign line_art_version = '20260722-gyanbaaz-domain-1' %}
 
-<link rel="preconnect" href="https://stamptrial-production.up.railway.app">
-<link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v={{ line_art_version }}">
+<link rel="preconnect" href="https://gyanbaaz.in">
+<link rel="stylesheet" href="https://gyanbaaz.in/shopify-line-art.css?v={{ line_art_version }}">
 
 <div id="line-art-fallback" style="display:block;padding:14px 0;">
   <button id="line-art-fallback-button" type="button" disabled aria-busy="true"
@@ -23,7 +23,7 @@
 </noscript>
 
 <script>
-  window.LINE_ART_BACKEND_URL = "https://stamptrial-production.up.railway.app";
+  window.LINE_ART_BACKEND_URL = "https://gyanbaaz.in";
   window.LINE_ART_ASSET_VERSION = {{ line_art_version | json }};
 
   window.reportLineArtDiagnostic = function (event, reason, extra) {
@@ -187,8 +187,12 @@
       var script = document.createElement("script");
       script.id = "line-art-customizer-loader-script";
       script.async = true;
-      script.src = window.LINE_ART_BACKEND_URL + "/shopify-line-art.js?v=" +
-        encodeURIComponent(window.LINE_ART_ASSET_VERSION) + "&attempt=" + attempt + "&retry=" + Date.now();
+      var scriptUrl = window.LINE_ART_BACKEND_URL + "/shopify-line-art.js?v=" +
+        encodeURIComponent(window.LINE_ART_ASSET_VERSION);
+      if (attempt > 1) {
+        scriptUrl += "&attempt=" + attempt + "&retry=" + Date.now();
+      }
+      script.src = scriptUrl;
 
       var settled = false;
       var failOnce = function (reason) {
