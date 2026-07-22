@@ -1,4 +1,4 @@
-{% assign line_art_version = '20260722-uploader-fallback-1' %}
+{% assign line_art_version = '20260722-uploader-diagnostics-1' %}
 
 <link rel="preconnect" href="https://stamptrial-production.up.railway.app">
 <link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v={{ line_art_version }}">
@@ -23,8 +23,39 @@
 <script>
   window.LINE_ART_BACKEND_URL = "https://stamptrial-production.up.railway.app";
   window.LINE_ART_ASSET_VERSION = {{ line_art_version | json }};
+  window.reportLineArtDiagnostic = function (event, reason) {
+    try {
+      var fallback = document.getElementById("line-art-fallback");
+      var mount = document.getElementById("line-art-customizer-mount");
+      var isVisible = function (element) {
+        if (!element) return false;
+        var rect = element.getBoundingClientRect();
+        var style = window.getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      };
+      fetch(window.LINE_ART_BACKEND_URL + "/api/uploader-diagnostics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          event: event,
+          details: {
+            path: location.pathname,
+            viewport: window.innerWidth + "x" + window.innerHeight,
+            fallbackVisible: isVisible(fallback),
+            mountVisible: isVisible(mount),
+            assetVersion: window.LINE_ART_ASSET_VERSION,
+            reason: reason || ""
+          }
+        })
+      }).catch(function () {});
+    } catch (error) {}
+  };
+
+  window.reportLineArtDiagnostic("liquid_rendered");
 
   window.retryLineArtCustomizer = function () {
+    window.reportLineArtDiagnostic("fallback_clicked");
     var mount = document.getElementById("line-art-customizer-mount");
     var button = document.getElementById("line-art-fallback-button");
     var message = document.getElementById("line-art-fallback-message");
@@ -50,9 +81,11 @@
     script.onload = function () {
       if (mount.dataset.initialized !== "true" && message) {
         message.textContent = "The studio loaded but could not start. Please refresh this page.";
+        window.reportLineArtDiagnostic("retry_script_loaded_not_initialized");
       }
     };
     script.onerror = function () {
+      window.reportLineArtDiagnostic("retry_script_error");
       if (button) {
         button.disabled = false;
         button.textContent = "Retry logo uploader";
@@ -72,5 +105,6 @@
 <script
   src="https://stamptrial-production.up.railway.app/shopify-line-art.js?v={{ line_art_version }}"
   defer
-  onerror="document.getElementById('line-art-fallback-message').style.display='block'; document.getElementById('line-art-fallback-message').textContent='The design studio could not load. Tap Upload your logo to retry.';"
+  onload="setTimeout(function(){var mount=document.getElementById('line-art-customizer-mount');if(!mount||mount.dataset.initialized!=='true')window.reportLineArtDiagnostic('primary_script_loaded_not_initialized');},2000);"
+  onerror="window.reportLineArtDiagnostic('primary_script_error'); document.getElementById('line-art-fallback-message').style.display='block'; document.getElementById('line-art-fallback-message').textContent='The design studio could not load. Tap Upload your logo to retry.';"
 ></script>

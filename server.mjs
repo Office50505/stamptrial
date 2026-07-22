@@ -603,6 +603,45 @@ function dashboardAuth(req, res, next) {
   res.status(401).json({ error: "Authentication required." });
 }
 
+const uploaderDiagnosticEvents = new Set([
+  "liquid_rendered",
+  "fallback_clicked",
+  "primary_script_error",
+  "primary_script_loaded_not_initialized",
+  "retry_script_error",
+  "retry_script_loaded_not_initialized",
+  "customizer_init_started",
+  "customizer_init_completed"
+]);
+
+app.post("/api/uploader-diagnostics", (req, res) => {
+  const event = String(req.body?.event || "").slice(0, 64);
+  if (!uploaderDiagnosticEvents.has(event)) {
+    res.status(400).json({ error: "Unknown diagnostic event." });
+    return;
+  }
+
+  const details = req.body?.details && typeof req.body.details === "object" ? req.body.details : {};
+  const geo = getRequestGeoFromHeaders(req);
+  console.info("Uploader diagnostic", {
+    event,
+    at: new Date().toISOString(),
+    ip: getRequestIp(req),
+    city: geo.city || "",
+    country: geo.country || "",
+    origin: String(req.get("origin") || "").slice(0, 200),
+    userAgent: String(req.get("user-agent") || "").slice(0, 300),
+    details: {
+      path: String(details.path || "").slice(0, 300),
+      viewport: String(details.viewport || "").slice(0, 40),
+      fallbackVisible: Boolean(details.fallbackVisible),
+      mountVisible: Boolean(details.mountVisible),
+      assetVersion: String(details.assetVersion || "").slice(0, 80),
+      reason: String(details.reason || "").slice(0, 200)
+    }
+  });
+  res.status(204).end();
+});
 app.use(dashboardAuth);
 app.use(express.static("public"));
 
