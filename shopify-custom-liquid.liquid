@@ -1,15 +1,17 @@
-{% assign line_art_version = '20260722-uploader-diagnostics-1' %}
+{% assign line_art_version = '20260722-uploader-retry-logging-1' %}
 
 <link rel="preconnect" href="https://stamptrial-production.up.railway.app">
 <link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v={{ line_art_version }}">
 
 <div id="line-art-fallback" style="display:block;padding:14px 0;">
-  <button id="line-art-fallback-button" type="button"
-    style="display:flex!important;visibility:visible!important;opacity:1;width:100%;min-height:56px;padding:12px 18px;border:0;border-radius:10px;background:#2f80ed;color:#fff;font:inherit;font-weight:750;cursor:pointer;box-shadow:0 8px 22px rgba(47,128,237,.18);align-items:center;justify-content:center;">
-    Upload your logo
+  <button id="line-art-fallback-button" type="button" disabled aria-busy="true"
+    style="display:flex!important;visibility:visible!important;opacity:1;width:100%;min-height:56px;padding:12px 18px;border:0;border-radius:10px;background:#2f80ed;color:#fff;font:inherit;font-weight:750;cursor:wait;box-shadow:0 8px 22px rgba(47,128,237,.18);align-items:center;justify-content:center;">
+    Loading logo uploader...
   </button>
   <div id="line-art-fallback-message" role="status" aria-live="polite"
-    style="display:none;margin-top:8px;color:#6b7280;font-size:12px;text-align:center;"></div>
+    style="display:block;margin-top:8px;color:#6b7280;font-size:12px;text-align:center;">
+    Connecting to the design studio...
+  </div>
 </div>
 
 <div id="line-art-customizer-mount"></div>
@@ -23,8 +25,10 @@
 <script>
   window.LINE_ART_BACKEND_URL = "https://stamptrial-production.up.railway.app";
   window.LINE_ART_ASSET_VERSION = {{ line_art_version | json }};
-  window.reportLineArtDiagnostic = function (event, reason) {
+
+  window.reportLineArtDiagnostic = function (event, reason, extra) {
     try {
+      extra = extra || {};
       var fallback = document.getElementById("line-art-fallback");
       var mount = document.getElementById("line-art-customizer-mount");
       var isVisible = function (element) {
@@ -44,6 +48,13 @@
             viewport: window.innerWidth + "x" + window.innerHeight,
             fallbackVisible: isVisible(fallback),
             mountVisible: isVisible(mount),
+            fallbackCount: document.querySelectorAll('[id="line-art-fallback"]').length,
+            mountCount: document.querySelectorAll('[id="line-art-customizer-mount"]').length,
+            attempt: extra.attempt || 0,
+            elapsedMs: extra.elapsedMs || 0,
+            online: navigator.onLine !== false,
+            visibilityState: document.visibilityState || "",
+            connectionType: navigator.connection ? (navigator.connection.effectiveType || navigator.connection.type || "") : "",
             assetVersion: window.LINE_ART_ASSET_VERSION,
             reason: reason || ""
           }
@@ -52,59 +63,149 @@
     } catch (error) {}
   };
 
-  window.reportLineArtDiagnostic("liquid_rendered");
-
-  window.retryLineArtCustomizer = function () {
-    window.reportLineArtDiagnostic("fallback_clicked");
-    var mount = document.getElementById("line-art-customizer-mount");
+  (function () {
+    var maxAttempts = 3;
+    var attempt = 0;
+    var attemptTimeout = null;
+    var retryTimer = null;
+    var attemptStartedAt = 0;
     var button = document.getElementById("line-art-fallback-button");
     var message = document.getElementById("line-art-fallback-message");
-    if (!mount || mount.dataset.initialized === "true") return;
+    var mount = document.getElementById("line-art-customizer-mount");
 
-    if (button) {
+    function setLoadingState() {
+      if (!button) return;
       button.disabled = true;
-      button.textContent = "Loading customizer...";
-      button.style.opacity = "0.72";
-    }
-    if (message) {
-      message.style.display = "block";
-      message.textContent = "Connecting to the design studio...";
-    }
-
-    var previousRetry = document.getElementById("line-art-customizer-retry-script");
-    if (previousRetry && previousRetry.parentNode) previousRetry.parentNode.removeChild(previousRetry);
-
-    var script = document.createElement("script");
-    script.id = "line-art-customizer-retry-script";
-    script.src = window.LINE_ART_BACKEND_URL + "/shopify-line-art.js?v=" +
-      encodeURIComponent(window.LINE_ART_ASSET_VERSION) + "&retry=" + Date.now();
-    script.onload = function () {
-      if (mount.dataset.initialized !== "true" && message) {
-        message.textContent = "The studio loaded but could not start. Please refresh this page.";
-        window.reportLineArtDiagnostic("retry_script_loaded_not_initialized");
+      button.setAttribute("aria-busy", "true");
+      button.style.cursor = "wait";
+      button.textContent = attempt === 1
+        ? "Loading logo uploader..."
+        : "Reconnecting to logo uploader... (" + attempt + "/" + maxAttempts + ")";
+      if (message) {
+        message.style.display = "block";
+        message.textContent = attempt === 1
+          ? "Connecting to the design studio..."
+          : "The connection was interrupted. Retrying automatically...";
       }
-    };
-    script.onerror = function () {
-      window.reportLineArtDiagnostic("retry_script_error");
+    }
+
+    function setManualRetryState() {
       if (button) {
         button.disabled = false;
-        button.textContent = "Retry logo uploader";
-        button.style.opacity = "1";
+        button.removeAttribute("aria-busy");
+        button.style.cursor = "pointer";
+        button.textContent = "Couldn't load uploader — Tap to retry";
       }
       if (message) {
-        message.textContent = "The design studio could not load. Check your connection and try again.";
+        message.style.display = "block";
+        message.textContent = "The design studio is temporarily unavailable. Tap the button to try again.";
       }
+    }
+
+    function clearAttemptTimers() {
+      if (attemptTimeout) clearTimeout(attemptTimeout);
+      if (retryTimer) clearTimeout(retryTimer);
+      attemptTimeout = null;
+      retryTimer = null;
+    }
+
+    function handleFailure(reason) {
+      clearAttemptTimers();
+      if (mount && mount.dataset.initialized === "true") return;
+
+      window.reportLineArtDiagnostic(
+        "load_attempt_failed",
+        reason + ";attempt=" + attempt,
+        { attempt: attempt, elapsedMs: Date.now() - attemptStartedAt }
+      );
+      window.reportLineArtDiagnostic(
+        reason === "network_error" ? (attempt === 1 ? "primary_script_error" : "retry_script_error") :
+        (attempt === 1 ? "primary_script_loaded_not_initialized" : "retry_script_loaded_not_initialized"),
+        reason + ";attempt=" + attempt
+      );
+
+      if (attempt < maxAttempts) {
+        var delay = attempt === 1 ? 1000 : 3000;
+        window.reportLineArtDiagnostic("auto_retry_scheduled", "delay=" + delay, { attempt: attempt, elapsedMs: Date.now() - attemptStartedAt });
+        retryTimer = setTimeout(loadCustomizer, delay);
+      } else {
+        setManualRetryState();
+      }
+    }
+
+    function loadCustomizer() {
+      clearAttemptTimers();
+      if (!mount || mount.dataset.initialized === "true") return;
+
+      attempt += 1;
+      attemptStartedAt = Date.now();
+      window.reportLineArtDiagnostic("load_attempt_started", "", { attempt: attempt });
+      delete mount.dataset.initializing;
+      setLoadingState();
+
+      var previous = document.getElementById("line-art-customizer-loader-script");
+      if (previous && previous.parentNode) previous.parentNode.removeChild(previous);
+
+      var script = document.createElement("script");
+      script.id = "line-art-customizer-loader-script";
+      script.async = true;
+      script.src = window.LINE_ART_BACKEND_URL + "/shopify-line-art.js?v=" +
+        encodeURIComponent(window.LINE_ART_ASSET_VERSION) + "&attempt=" + attempt + "&retry=" + Date.now();
+
+      var settled = false;
+      var failOnce = function (reason) {
+        if (settled) return;
+        settled = true;
+        handleFailure(reason);
+      };
+
+      script.onload = function () {
+        setTimeout(function () {
+          if (mount.dataset.initialized === "true") {
+            settled = true;
+            clearAttemptTimers();
+          } else {
+            failOnce("initialization_timeout");
+          }
+        }, 250);
+      };
+      script.onerror = function () { failOnce("network_error"); };
+      attemptTimeout = setTimeout(function () { failOnce("load_timeout"); }, 8000);
+      document.head.appendChild(script);
+    }
+
+    window.retryLineArtCustomizer = function () {
+      window.reportLineArtDiagnostic("fallback_clicked", "manual_retry");
+      clearAttemptTimers();
+      attempt = 0;
+      loadCustomizer();
     };
-    document.head.appendChild(script);
-  };
 
-  var fallbackButton = document.getElementById("line-art-fallback-button");
-  if (fallbackButton) fallbackButton.addEventListener("click", window.retryLineArtCustomizer);
+    if (!window.__lineArtRuntimeDiagnosticsReady) {
+      window.__lineArtRuntimeDiagnosticsReady = true;
+      window.addEventListener("error", function (event) {
+        var filename = String(event.filename || "");
+        var activeMount = document.getElementById("line-art-customizer-mount");
+        if (filename.indexOf("shopify-line-art.js") === -1 && (!activeMount || activeMount.dataset.initializing !== "true")) return;
+        window.reportLineArtDiagnostic("customizer_runtime_error", [
+          event.message || "Unknown runtime error",
+          filename,
+          event.lineno || 0,
+          event.colno || 0
+        ].join(" | "), { attempt: attempt, elapsedMs: attemptStartedAt ? Date.now() - attemptStartedAt : 0 });
+      }, true);
+      window.addEventListener("unhandledrejection", function (event) {
+        var activeMount = document.getElementById("line-art-customizer-mount");
+        if (!activeMount || activeMount.dataset.initializing !== "true") return;
+        var reason = event.reason && (event.reason.stack || event.reason.message) || String(event.reason || "Unknown rejection");
+        window.reportLineArtDiagnostic("customizer_unhandled_rejection", reason, {
+          attempt: attempt,
+          elapsedMs: attemptStartedAt ? Date.now() - attemptStartedAt : 0
+        });
+      });
+    }
+    if (button) button.addEventListener("click", window.retryLineArtCustomizer);
+    window.reportLineArtDiagnostic("liquid_rendered");
+    loadCustomizer();
+  })();
 </script>
-
-<script
-  src="https://stamptrial-production.up.railway.app/shopify-line-art.js?v={{ line_art_version }}"
-  defer
-  onload="setTimeout(function(){var mount=document.getElementById('line-art-customizer-mount');if(!mount||mount.dataset.initialized!=='true')window.reportLineArtDiagnostic('primary_script_loaded_not_initialized');},2000);"
-  onerror="window.reportLineArtDiagnostic('primary_script_error'); document.getElementById('line-art-fallback-message').style.display='block'; document.getElementById('line-art-fallback-message').textContent='The design studio could not load. Tap Upload your logo to retry.';"
-></script>

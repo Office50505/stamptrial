@@ -611,7 +611,12 @@ const uploaderDiagnosticEvents = new Set([
   "retry_script_error",
   "retry_script_loaded_not_initialized",
   "customizer_init_started",
-  "customizer_init_completed"
+  "customizer_init_completed",
+  "load_attempt_started",
+  "load_attempt_failed",
+  "auto_retry_scheduled",
+  "customizer_runtime_error",
+  "customizer_unhandled_rejection"
 ]);
 
 app.post("/api/uploader-diagnostics", (req, res) => {
@@ -623,7 +628,7 @@ app.post("/api/uploader-diagnostics", (req, res) => {
 
   const details = req.body?.details && typeof req.body.details === "object" ? req.body.details : {};
   const geo = getRequestGeoFromHeaders(req);
-  console.info("Uploader diagnostic", {
+  const diagnostic = {
     event,
     at: new Date().toISOString(),
     ip: getRequestIp(req),
@@ -636,10 +641,18 @@ app.post("/api/uploader-diagnostics", (req, res) => {
       viewport: String(details.viewport || "").slice(0, 40),
       fallbackVisible: Boolean(details.fallbackVisible),
       mountVisible: Boolean(details.mountVisible),
+      fallbackCount: Math.max(0, Math.min(20, Number(details.fallbackCount) || 0)),
+      mountCount: Math.max(0, Math.min(20, Number(details.mountCount) || 0)),
+      attempt: Math.max(0, Math.min(20, Number(details.attempt) || 0)),
+      elapsedMs: Math.max(0, Math.min(120000, Number(details.elapsedMs) || 0)),
+      online: details.online !== false,
+      visibilityState: String(details.visibilityState || "").slice(0, 30),
+      connectionType: String(details.connectionType || "").slice(0, 40),
       assetVersion: String(details.assetVersion || "").slice(0, 80),
-      reason: String(details.reason || "").slice(0, 200)
+      reason: String(details.reason || "").slice(0, 500)
     }
-  });
+  };
+  console.info(`Uploader diagnostic ${JSON.stringify(diagnostic)}`);
   res.status(204).end();
 });
 app.use(dashboardAuth);
