@@ -2798,5 +2798,9 @@
     restoreLastGenerationSession().catch((error) => {
       console.warn("Previous generation restore skipped:", error);
     });
+
+    // Hide the server-rendered fallback only after full initialization.
+    const fallback = document.getElementById("line-art-fallback");
+    if (fallback) fallback.style.display = "none";
   
 })();

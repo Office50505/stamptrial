@@ -1,18 +1,18 @@
-{% assign line_art_version = '20260713-fullscreen-safe-1' %}
+{% assign line_art_version = '20260722-uploader-fallback-1' %}
 
 <link rel="preconnect" href="https://stamptrial-production.up.railway.app">
 <link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v={{ line_art_version }}">
 
-<div id="line-art-customizer-mount">
-  <div id="line-art-fallback" style="padding: 14px 0;">
-    <button id="line-art-fallback-button" type="button"
-      style="width:100%;min-height:56px;padding:12px 18px;border:0;border-radius:10px;background:#2f80ed;color:#fff;font:inherit;font-weight:750;cursor:pointer;box-shadow:0 8px 22px rgba(47,128,237,.18);">
-      Upload your logo
-    </button>
-    <div id="line-art-fallback-message" role="status" aria-live="polite"
-      style="display:none;margin-top:8px;color:#6b7280;font-size:12px;text-align:center;"></div>
-  </div>
+<div id="line-art-fallback" style="display:block;padding:14px 0;">
+  <button id="line-art-fallback-button" type="button"
+    style="display:flex!important;visibility:visible!important;opacity:1;width:100%;min-height:56px;padding:12px 18px;border:0;border-radius:10px;background:#2f80ed;color:#fff;font:inherit;font-weight:750;cursor:pointer;box-shadow:0 8px 22px rgba(47,128,237,.18);align-items:center;justify-content:center;">
+    Upload your logo
+  </button>
+  <div id="line-art-fallback-message" role="status" aria-live="polite"
+    style="display:none;margin-top:8px;color:#6b7280;font-size:12px;text-align:center;"></div>
 </div>
+
+<div id="line-art-customizer-mount"></div>
 
 <noscript>
   <p style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;">
