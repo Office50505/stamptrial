@@ -1,4 +1,4 @@
-{% assign line_art_version = '20260722-uploader-retry-logging-1' %}
+{% assign line_art_version = '20260722-uploader-progressive-timeouts-1' %}
 
 <link rel="preconnect" href="https://stamptrial-production.up.railway.app">
 <link rel="stylesheet" href="https://stamptrial-production.up.railway.app/shopify-line-art.css?v={{ line_art_version }}">
@@ -69,6 +69,9 @@
     var attemptTimeout = null;
     var retryTimer = null;
     var attemptStartedAt = 0;
+    var timeoutStartedAt = 0;
+    var timeoutRemaining = 0;
+    var timeoutCallback = null;
     var button = document.getElementById("line-art-fallback-button");
     var message = document.getElementById("line-art-fallback-message");
     var mount = document.getElementById("line-art-customizer-mount");
@@ -107,7 +110,42 @@
       if (retryTimer) clearTimeout(retryTimer);
       attemptTimeout = null;
       retryTimer = null;
+      timeoutStartedAt = 0;
+      timeoutRemaining = 0;
+      timeoutCallback = null;
     }
+
+    function resumeAttemptTimeout() {
+      if (!timeoutCallback || timeoutRemaining <= 0 || document.visibilityState === "hidden") return;
+      timeoutStartedAt = Date.now();
+      attemptTimeout = setTimeout(function () {
+        attemptTimeout = null;
+        timeoutRemaining = 0;
+        var callback = timeoutCallback;
+        timeoutCallback = null;
+        if (callback) callback();
+      }, timeoutRemaining);
+    }
+
+    function pauseAttemptTimeout() {
+      if (!attemptTimeout) return;
+      clearTimeout(attemptTimeout);
+      attemptTimeout = null;
+      timeoutRemaining = Math.max(0, timeoutRemaining - (Date.now() - timeoutStartedAt));
+      timeoutStartedAt = 0;
+    }
+
+    function startAttemptTimeout(duration, callback) {
+      if (attemptTimeout) clearTimeout(attemptTimeout);
+      timeoutRemaining = duration;
+      timeoutCallback = callback;
+      resumeAttemptTimeout();
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") pauseAttemptTimeout();
+      else resumeAttemptTimeout();
+    });
 
     function handleFailure(reason) {
       clearAttemptTimers();
@@ -170,7 +208,10 @@
         }, 250);
       };
       script.onerror = function () { failOnce("network_error"); };
-      attemptTimeout = setTimeout(function () { failOnce("load_timeout"); }, 8000);
+      var timeoutByAttempt = [15000, 20000, 25000];
+      startAttemptTimeout(timeoutByAttempt[Math.min(attempt - 1, timeoutByAttempt.length - 1)], function () {
+        failOnce("load_timeout");
+      });
       document.head.appendChild(script);
     }
 
