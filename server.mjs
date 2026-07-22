@@ -208,8 +208,7 @@ function getRequestGeoFromHeaders(req) {
 }
 
 async function lookupIpInfo(ip) {
-  const token = process.env.IPINFO_TOKEN;
-  if (!token || isPrivateIp(ip)) return {};
+  if (isPrivateIp(ip)) return {};
 
   const cached = visitorGeoCache.get(ip);
   if (cached && cached.expiresAt > Date.now()) return cached.geo;
@@ -217,12 +216,13 @@ async function lookupIpInfo(ip) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 1200);
-    const response = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json?token=${encodeURIComponent(token)}`, {
+    const response = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
       headers: { Accept: "application/json" },
       signal: controller.signal
     }).finally(() => clearTimeout(timeout));
     if (!response.ok) return {};
     const data = await response.json();
+    if (data.success === false) return {};
     const geo = {
       city: String(data.city || "").trim(),
       region: String(data.region || "").trim(),
