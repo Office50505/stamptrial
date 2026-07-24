@@ -162,13 +162,14 @@
     .view.active { display: grid; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .panel {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
+	    .panel {
+	      border: 1px solid var(--line);
+	      border-radius: var(--radius);
+	      background: var(--panel);
+	      box-shadow: var(--shadow);
+	      overflow: hidden;
+	    }
+	    #designs .panel { overflow: visible; }
     .panel-head {
       min-height: 54px;
       padding: 14px 16px;
@@ -265,7 +266,7 @@
 	      position: absolute;
 	      right: 0;
 	      top: calc(100% + 8px);
-	      z-index: 35;
+	      z-index: 80;
 	      width: min(760px, calc(100vw - 48px));
 	      min-height: 390px;
 	      border: 1px solid var(--line);
@@ -275,6 +276,7 @@
 	      display: grid;
 	      grid-template-columns: 170px minmax(0, 1fr);
 	      overflow: hidden;
+	      pointer-events: auto;
 	    }
 	    .date-popover[hidden] { display: none; }
 	    .date-presets {
@@ -335,6 +337,8 @@
 	      background: transparent;
 	      font-weight: 650;
 	      color: #344054;
+	      position: relative;
+	      touch-action: manipulation;
 	    }
 	    .calendar-day:hover { background: var(--slate-soft); border-color: transparent; }
 	    .calendar-day.in-range { background: #eef2f6; border-radius: 0; }
@@ -1512,14 +1516,21 @@
 	    $("show-updates").onclick = () => { pendingUpdates = 0; $("live-banner").hidden = true; reset(); };
 	    $("logout").onclick = $("settings-logout").onclick = async () => { await fetch("/api/dashboard-logout", { method: "POST" }); window.location.replace("/dashboard-login.html"); };
 	    ["status", "size", "final"].forEach((id) => $(id).onchange = reset);
-	    $("date-filter-button").onclick = () => $("date-popover").hidden ? openDatePicker() : closeDatePicker();
+	    $("date-filter-button").onclick = (event) => {
+	      event.stopPropagation();
+	      $("date-popover").hidden ? openDatePicker() : closeDatePicker();
+	    };
+	    $("date-popover").onclick = (event) => event.stopPropagation();
 	    $("date-presets").onclick = (event) => {
 	      const button = event.target.closest("[data-preset]");
 	      if (button) applyDatePreset(button.dataset.preset);
 	    };
 	    $("calendar-months").onclick = (event) => {
 	      const button = event.target.closest("[data-date]");
-	      if (button) chooseCalendarDate(button.dataset.date);
+	      if (button) {
+	        event.preventDefault();
+	        chooseCalendarDate(button.dataset.date);
+	      }
 	    };
 	    $("calendar-prev").onclick = () => { calendarBase = new Date(calendarBase.getFullYear(), calendarBase.getMonth() - 1, 1); renderDatePicker(); };
 	    $("calendar-next").onclick = () => { calendarBase = new Date(calendarBase.getFullYear(), calendarBase.getMonth() + 1, 1); renderDatePicker(); };
