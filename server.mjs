@@ -863,26 +863,30 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-const LINE_ART_PROMPT = `Convert the uploaded reference image into bold black vector-style logo line art on a pure white background — a clean emblem/icon conversion with crisp, smooth, manually-traced-looking contours. Use the uploaded image as the source of truth for subject, pose, silhouette, proportions, and layout.
- 
-STYLE
-Bold black outlines on a pure white background. High-contrast black and white only — no gray, no color. Smooth vector-quality curves and straight segments matching the source's actual geometry (smooth where curved, sharp corners only where the source has real corners). Strokes must be crisp and hard-edged: no blur, feathering, fuzz, or low-resolution edges. White-dominant result — black appears as strokes/details, not as filled background. Clean enclosed white negative space between lines. No sketch, pencil, brush, watercolor, or halftone texture; no rough hand-drawn wobble; no thin fragile lines; no low-detail cartoon look; no inverted look or mostly-black badge.
- 
-TRANSFORMATION
-Convert visible subject edges, key internal edges, and major shadows into clean black vector paths. Keep essential filled-black areas only where needed for readability (eyes, eyebrows, lips, deep shadows, dark graphic details); keep other areas white. Use thick strokes for contours rather than solid fills. Remove photographic texture, gradients, skin tones, color, noise, soft lighting, and background clutter. If the source is already a logo/graphic, preserve its geometry and just clean up the edges. If the source is a photo, simplify only enough to produce a clean line-art version while keeping the likeness and geometry intact.
- 
-IDENTITY LOCK (non-negotiable)
-The output must be immediately recognizable as the exact same subject — same core elements, count, position, structure, proportions, symmetry, spacing, and negative space as the source. Do not alter, remove, merge, duplicate, reposition, reinterpret, or oversimplify any distinguishing feature (facial features, object parts, marks, accessories, defining shapes). When unsure if a detail is "core," preserve it.
- 
-SMALL MARKS (critical)
-Any ™, ®, ©, monogram, tiny text, or small secondary mark in the source must appear in the output, in the same position and scale, in clean vector line form. Before finalizing, scan the full source edge-to-edge (including corners/periphery) and confirm every mark is reproduced — never drop or shrink one into illegibility for being small.
- 
-DO NOT
-Do not produce a realistic portrait, shaded sketch, pencil drawing, or generic clipart. Do not fill a black disk/square behind the subject or turn white space into black masses. Do not invent ornaments, backgrounds, frames, or decorative scenery. Do not add text, letters, TM marks, logos, or watermarks not present in the source. Do not copy outside brand artwork unless the source itself is that artwork. Do not change any core feature of the original subject.
- 
-Result should look like a bold black-and-white vector logo outline, print/engrave-ready, with the exact identity, core elements, and any small marks (™/®/©) of the original preserved.
+const LINE_ART_PROMPT = `Convert the uploaded reference image into clean bold black-and-white vector logo line art. The uploaded image is the source of truth for subject, pose, silhouette, proportions, layout, lettering, and every distinguishing detail.
 
-If the source contains readable words or lettering, preserve the exact spelling, letter count, placement, and hierarchy. can we make this better.`;
+Primary goal
+If the source is already a logo, emblem, mascot, sticker, badge, or flat graphic, preserve the original logo geometry and simplify it into a clean print/engrave-ready black outline. Do not redraw it as a new illustration. Keep the same silhouette, same letter shapes, same object positions, same spacing, same hierarchy, and same negative space.
+
+Style
+Pure black artwork on pure white. High-contrast black and white only: no gray, no color, no gradients, no soft shadows. Crisp, hard-edged, vector-quality curves and straight segments that follow the source's actual geometry. White-dominant result: black should be outlines, lettering, and essential dark details, not a filled background. Use confident medium-to-bold strokes. No sketch, pencil, brush, watercolor, halftone, blur, feathering, wobble, or thin fragile lines. No inverted or mostly-black badge.
+
+Logo color handling
+For colored logo artwork, treat color fills as fill regions, not as extra linework. Convert colored fills, gradients, highlights, shine bands, orange/yellow/red color separations, and decorative color shading into clean white negative space unless they are actual black outlines in the original. Do not trace every color boundary as a black line. Do not add extra horizontal/vertical hatch marks, shine strokes, texture strokes, wrinkle strokes, or shading lines just because the source has color changes. Preserve only the original black contour structure and truly necessary internal black outlines.
+
+What to convert
+Keep the visible outer silhouette, original black outlines, key structural inner outlines, readable lettering, monograms, and essential dark graphic details. Use thick contour strokes rather than solid fills except where the original already uses black lettering, black outline mass, or dark details required for readability. Remove photographic texture, compression noise, screenshot artifacts, app UI, phone UI, viewer backgrounds, soft lighting, and background clutter. If the uploaded image is a screenshot, isolate only the actual logo/artwork inside it.
+
+Identity lock
+Output must be instantly recognizable as the exact same logo or subject. Preserve the same core elements, count, position, structure, proportions, symmetry, spacing, text placement, letter count, and negative space. Do not alter, remove, merge, duplicate, reposition, reinterpret, or oversimplify any distinguishing feature. When unsure whether a detail is core, keep it only if it is part of the original black outline or essential logo identity.
+
+Small marks & text
+Scan the source edge to edge, including corners and periphery. Every ™, ®, ©, monogram, small secondary mark, or readable piece of lettering that belongs to the logo must appear in the output at the same relative position and scale in clean vector form. Preserve exact spelling, letter count, placement, and hierarchy. Do not invent new text or marks.
+
+Do not
+Do not add anything not in the source: no invented ornaments, frames, backgrounds, texture strokes, watermarks, or extra contour lines. No black disk or square behind the subject. No realistic portrait, shaded sketch, generic clipart, or reimagined mascot. Do not turn colored highlight bands or gradients into unnecessary black internal lines. Do not copy outside brand artwork unless the source itself is that artwork.
+
+Result: a clean print/engrave-ready black-and-white vector logo outline preserving the exact identity, original outline structure, readable text, and necessary marks of the source, while avoiding unnecessary black lines from colored fills or highlights.`;
 
 app.post("/api/generate-line-art", async (req, res) => {
   const requestId = crypto.randomUUID().slice(0, 8);

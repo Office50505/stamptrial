@@ -863,7 +863,7 @@
       const uploadButton = document.querySelector("#drop-zone .btn-secondary");
       if (!uploadButton) return;
 
-      uploadButton.innerHTML = '<span class="upload-picture-label">Upload your logo</span>';
+      uploadButton.innerHTML = '<span class="upload-picture-label">Upload Your Logo</span>';
       uploadButton.classList.add("upload-picture-btn");
       uploadButton.style.setProperty("--upload-progress", "0%");
       document.querySelectorAll("#drop-zone .upload-required-marker").forEach((marker) => marker.remove());
@@ -882,7 +882,7 @@
 
       if (!isLoading) {
         stopUploadStatusMessages();
-        label.textContent = "Upload your logo";
+        label.textContent = "Upload Your Logo";
         return;
       }
 
