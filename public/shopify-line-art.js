@@ -747,11 +747,15 @@
     function initSimplifiedFlowUi() {
       const processButton = document.getElementById("btn-process-image");
       if (processButton) {
+        const labelNode = Array.from(processButton.childNodes).find((node) =>
+          node.nodeType === Node.TEXT_NODE && node.textContent.includes("Generate Line Arts")
+        );
+        if (labelNode) labelNode.textContent = "\n              Generate Line Art\n              ";
         processButton.closest(".button-row")?.classList.add("hidden");
       }
 
       const variantsHeading = document.querySelector("#step-pane-2 h2");
-      if (variantsHeading) variantsHeading.textContent = "Choose a Style";
+      if (variantsHeading) variantsHeading.textContent = "Generated Line Art";
 
       const variantBackButton = document.querySelector("#step-pane-2 .button-row .btn-secondary");
       if (variantBackButton) {
@@ -1917,12 +1921,7 @@
       generatedVariantPreviews = [];
       generatedVariantSourceUrls = urls.slice(0, GENERATED_VARIANT_LIMIT);
 
-      const variantNames = variantNameOverrides || [
-        "Style 1 (Bold)",
-        "Style 2 (Detailed)",
-        "Style 3 (Clean)",
-        "Style 4 (Original Match)"
-      ];
+      const variantNames = variantNameOverrides || ["Generated Line Art"];
       const loadedImages = await Promise.all(urls.map((url, index) =>
         loadImageUrl(url).then((img) => {
           setGenerationLoading(true, 70 + Math.round(((index + 1) / urls.length) * 12));
@@ -1954,7 +1953,6 @@
           <div class="variant-preview-container" role="button" tabindex="0" aria-label="Open ${variantNames[index] || `Variant ${index + 1}`} fullscreen">
             <img src="${displayUrl}" alt="${variantNames[index] || `Variant ${index + 1}`}">
           </div>
-          <button class="variant-select-btn">Pick your style</button>
         `;
 
         const preview = card.querySelector(".variant-preview-container");
@@ -1977,7 +1975,9 @@
         container.appendChild(card);
       }
 
-      revealStep(2);
+      if (generatedLineArtVariants[0]) {
+        selectVariant(0);
+      }
     }
 
     function selectVariant(index) {
