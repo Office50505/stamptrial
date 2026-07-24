@@ -1,10 +1,306 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in · StampMyMark</title>
-<style>
-:root{--bg:#f4f5f7;--surface:#fff;--border:#e2e5e9;--text:#17191c;--muted:#68707b;--accent:#17191c;--error:#b42318;--error-bg:#fef3f2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#fff 0,#f7f7f8 32%,var(--bg) 72%);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;place-items:center;padding:20px}.shell{width:min(420px,100%)}.brand{text-align:center;margin-bottom:20px}.stamp-wrap{width:126px;height:88px;margin:0 auto 12px;display:grid;place-items:center}.stamp{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 5px 12px #1112)}h1{font-size:22px;margin:0 0 5px}.subtitle{color:var(--muted);font-size:13px}.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:0 16px 45px #1111}.field{display:grid;gap:7px;margin-bottom:15px}label{font-size:12px;font-weight:750}input{width:100%;height:44px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font:inherit;color:var(--text);background:#fff}input:focus{outline:3px solid #dbe8ff;border-color:#175cd3}.password-wrap{position:relative}.password-wrap input{padding-right:68px}.show{position:absolute;right:5px;top:5px;height:34px;border:0;background:transparent;color:var(--muted);font-weight:700;cursor:pointer}.submit{width:100%;height:44px;border:1px solid var(--accent);border-radius:9px;background:var(--accent);color:#fff;font:inherit;font-weight:750;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px}.submit:disabled{opacity:.65;cursor:wait}.spinner{width:18px;height:18px;object-fit:contain;display:none;animation:spin .8s linear infinite}.loading .spinner{display:block}.error{display:none;margin-bottom:14px;padding:10px 11px;border-radius:8px;background:var(--error-bg);color:var(--error);font-size:12px}.error.show-error{display:block}.security{text-align:center;color:var(--muted);font-size:11px;margin-top:14px}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){.card{padding:20px}.stamp-wrap{width:105px;height:73px}}
-</style></head><body><main class="shell"><div class="brand"><div class="stamp-wrap"><img class="stamp" src="/stamp.webp" alt="StampMyMark"></div><h1>Welcome back</h1><div class="subtitle">Sign in to the production queue</div></div><form id="login" class="card"><div id="error" class="error" role="alert"></div><div class="field"><label for="username">Username</label><input id="username" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="password">Password</label><div class="password-wrap"><input id="password" name="password" type="password" autocomplete="current-password" required><button id="show" class="show" type="button">Show</button></div></div><button id="submit" class="submit" type="submit"><img class="spinner" src="/stamp.webp" alt=""><span>Sign in</span></button></form><div class="security">Protected StampMyMark workspace</div></main>
-<script>
-const form=document.getElementById("login"),submit=document.getElementById("submit"),error=document.getElementById("error"),password=document.getElementById("password"),show=document.getElementById("show");
-show.onclick=()=>{const visible=password.type==="text";password.type=visible?"password":"text";show.textContent=visible?"Show":"Hide"};
-form.onsubmit=async e=>{e.preventDefault();error.classList.remove("show-error");submit.disabled=true;submit.classList.add("loading");try{const response=await fetch("/api/dashboard-login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:document.getElementById("username").value,password:password.value})});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||"Could not sign in.");window.location.replace("/dashboard.html")}catch(e){error.textContent=e.message;error.classList.add("show-error");password.focus();password.select()}finally{submit.disabled=false;submit.classList.remove("loading")}};
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in - StampMyMark</title>
+  <style>
+    :root {
+      --bg: #f3f5f8;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --line: #d9e0e8;
+      --line-strong: #b8c4d2;
+      --text: #111827;
+      --muted: #667085;
+      --blue: #175cd3;
+      --blue-soft: #eff6ff;
+      --green: #067647;
+      --green-soft: #ecfdf3;
+      --red: #b42318;
+      --red-soft: #fef3f2;
+      --shadow: 0 24px 70px rgba(16, 24, 40, .12);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    button, input { font: inherit; }
+    .shell {
+      width: min(1040px, 100%);
+      min-height: 620px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: minmax(320px, .95fr) minmax(360px, 1fr);
+      overflow: hidden;
+    }
+    .visual {
+      background: linear-gradient(180deg, #101828, #182230);
+      color: #fff;
+      padding: 34px;
+      display: grid;
+      align-content: space-between;
+      gap: 28px;
+      position: relative;
+    }
+    .visual:before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(180deg, #000, transparent 82%);
+    }
+    .visual > * { position: relative; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 10px;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .brand-mark img { width: 40px; height: 34px; object-fit: contain; }
+    .brand h1 { margin: 0; font-size: 17px; letter-spacing: 0; }
+    .brand p { margin: 2px 0 0; color: #cbd5e1; font-size: 12px; }
+    .visual-copy { max-width: 430px; display: grid; gap: 14px; }
+    .visual-copy h2 { margin: 0; font-size: clamp(28px, 4vw, 42px); line-height: 1.05; letter-spacing: 0; }
+    .visual-copy p { margin: 0; color: #cbd5e1; font-size: 15px; }
+    .status-grid { display: grid; gap: 10px; }
+    .status-card {
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.08);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      backdrop-filter: blur(14px);
+    }
+    .status-card span { color: #cbd5e1; font-size: 12px; }
+    .status-card strong { font-size: 13px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #47cd89; box-shadow: 0 0 0 4px rgba(71,205,137,.18); vertical-align: middle; }
+    .auth {
+      padding: clamp(28px, 5vw, 54px);
+      display: grid;
+      align-content: center;
+    }
+    .auth-head { margin-bottom: 24px; }
+    .eyebrow {
+      color: var(--blue);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    h2 { margin: 0; font-size: 28px; line-height: 1.15; letter-spacing: 0; }
+    .subtitle { color: var(--muted); margin-top: 8px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 22px;
+      display: grid;
+      gap: 15px;
+    }
+    .field { display: grid; gap: 7px; }
+    label { font-size: 12px; font-weight: 850; color: #344054; }
+    input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--text);
+      padding: 0 12px;
+    }
+    input:focus { outline: 3px solid #d9e9ff; border-color: var(--blue); }
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 70px; }
+    .show {
+      position: absolute;
+      right: 5px;
+      top: 5px;
+      min-height: 34px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 850;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+    .show:hover { background: var(--surface-soft); color: var(--text); }
+    .submit {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--blue);
+      border-radius: var(--radius);
+      background: var(--blue);
+      color: #fff;
+      font-weight: 850;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      cursor: pointer;
+    }
+    .submit:hover { background: #144fb5; border-color: #144fb5; }
+    .submit:disabled { opacity: .68; cursor: wait; }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+      display: none;
+      animation: spin .8s linear infinite;
+      filter: brightness(0) invert(1);
+    }
+    .loading .spinner { display: block; }
+    .error {
+      display: none;
+      padding: 11px 12px;
+      border: 1px solid #fecdca;
+      border-radius: var(--radius);
+      background: var(--red-soft);
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .error.show-error { display: block; }
+    .security {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .security-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 8px;
+      border: 1px solid #abefc6;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-weight: 850;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 820px) {
+      body { padding: 14px; }
+      .shell { grid-template-columns: 1fr; min-height: auto; }
+      .visual { min-height: 300px; }
+    }
+    @media (max-width: 520px) {
+      .visual, .auth { padding: 22px; }
+      .security { align-items: start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="visual" aria-label="Dashboard access">
+      <div class="brand">
+        <div class="brand-mark"><img src="/stamp.webp" alt=""></div>
+        <div>
+          <h1>StampMyMark</h1>
+          <p>Production workspace</p>
+        </div>
+      </div>
+      <div class="visual-copy">
+        <h2>Design operations, orders, and exports in one place.</h2>
+        <p>Sign in to review generated artwork, inspect customer designs, monitor health, and export production files.</p>
+      </div>
+      <div class="status-grid">
+        <div class="status-card"><span>Workspace</span><strong>Dashboard console</strong></div>
+        <div class="status-card"><span>Access</span><strong><span class="dot"></span> Protected session</strong></div>
+      </div>
+    </section>
+    <section class="auth">
+      <div class="auth-head">
+        <div class="eyebrow">Secure access</div>
+        <h2>Welcome back</h2>
+        <div class="subtitle">Use your dashboard credentials to continue.</div>
+      </div>
+      <form id="login" class="card">
+        <div id="error" class="error" role="alert"></div>
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="password-wrap">
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button id="show" class="show" type="button">Show</button>
+          </div>
+        </div>
+        <button id="submit" class="submit" type="submit"><img class="spinner" src="/stamp.webp" alt=""><span>Sign in</span></button>
+      </form>
+      <div class="security"><span>Protected StampMyMark workspace</span><span class="security-pill"><span class="dot"></span>Session secured</span></div>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById("login");
+    const submit = document.getElementById("submit");
+    const error = document.getElementById("error");
+    const password = document.getElementById("password");
+    const show = document.getElementById("show");
+
+    show.onclick = () => {
+      const visible = password.type === "text";
+      password.type = visible ? "password" : "text";
+      show.textContent = visible ? "Show" : "Hide";
+    };
+
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      error.classList.remove("show-error");
+      submit.disabled = true;
+      submit.classList.add("loading");
+      try {
+        const response = await fetch("/api/dashboard-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: password.value
+          })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Could not sign in.");
+        window.location.replace("/dashboard.html");
+      } catch (err) {
+        error.textContent = err.message;
+        error.classList.add("show-error");
+        password.focus();
+        password.select();
+      } finally {
+        submit.disabled = false;
+        submit.classList.remove("loading");
+      }
+    };
+  </script>
+</body>
+</html>

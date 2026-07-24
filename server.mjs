@@ -1278,6 +1278,13 @@ function escapeRegex(value) {
   return String(value || "").replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
 }
 
+function parseDashboardDate(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function buildDashboardFilter(query = {}, { ignoreStatus = false } = {}) {
   const filters = [];
   const search = String(query.q || "").trim();
@@ -1301,8 +1308,24 @@ function buildDashboardFilter(query = {}, { ignoreStatus = false } = {}) {
   if (!ignoreStatus && status === "ordered") filters.push({ hasOrder: true });
   if (!ignoreStatus && status === "abandoned") filters.push({ hasOrder: false });
   if (!ignoreStatus && status === "needs_attention") filters.push({ $and: [{ hasOrder: true }, noFinal] });
-  const days = Number(query.days);
-  if ([1, 7, 30, 90].includes(days)) filters.push({ createdAt: { $gte: new Date(Date.now() - days * 86_400_000) } });
+  const startDate = parseDashboardDate(query.startDate);
+  const endDate = parseDashboardDate(query.endDate);
+  if (startDate || endDate) {
+    const range = {};
+    let start = startDate;
+    let end = endDate;
+    if (start && end && start > end) [start, end] = [end, start];
+    if (start) range.$gte = start;
+    if (end) {
+      const exclusiveEnd = new Date(end);
+      exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
+      range.$lt = exclusiveEnd;
+    }
+    filters.push({ createdAt: range });
+  } else {
+    const days = Number(query.days);
+    if ([1, 7, 30, 90].includes(days)) filters.push({ createdAt: { $gte: new Date(Date.now() - days * 86_400_000) } });
+  }
   return filters.length ? { $and: filters } : {};
 }
 
@@ -1507,8 +1530,9 @@ app.get("/api/designs", async (req, res) => {
         "settings.selectedSize": 1, "settings.aboveText": 1,
         "settings.belowText": 1, "settings.inkColor": 1,
         "settings.notesForDesigner": 1,
+        "settings.generationTiming": 1,
         orderId: 1, orderName: 1, orderNumber: 1,
-        orderCreatedAt: 1, customerEmail: 1, customerName: 1, visitor: 1, lastVisitor: 1, createdAt: 1
+        orderCreatedAt: 1, customerEmail: 1, customerName: 1, visitor: 1, lastVisitor: 1, createdAt: 1, updatedAt: 1
       } }
     ];
     const queryStartedAt = Date.now();

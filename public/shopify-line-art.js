@@ -44,6 +44,7 @@
     let cartDesignRetryCount = 0;
     let selectedVariantIndex = -1;
     let currentGenerationCacheKey = "";
+    let lastGenerationTiming = null;
     const BACKEND_BASE_URL = (window.LINE_ART_BACKEND_URL || "https://gyanbaaz.in").replace(/\/$/, "");
     const GENERATION_SESSION_CACHE_PREFIX = "lineArtGenerationCache:";
     const GENERATION_LAST_SESSION_CACHE_KEY = "lineArtGenerationCache:last";
@@ -264,7 +265,7 @@
     }
 
     function getDesignSettings(index = selectedVariantIndex) {
-      return {
+      const settings = {
         sourceFileName,
         selectedVariantIndex: index,
         selectedStyleName: getSelectedVariantStyleName(index),
@@ -276,6 +277,10 @@
         belowText: document.getElementById("below-text-input")?.value || "",
         notesForDesigner: document.getElementById("designer-notes-input")?.value || ""
       };
+      if (lastGenerationTiming) {
+        settings.generationTiming = lastGenerationTiming;
+      }
+      return settings;
     }
 
     function createLocalDesignId() {
@@ -1709,6 +1714,12 @@
           logGenerationTiming("session cache hit", {
             imageCount: cachedGeneration.imageUrls.length
           });
+          lastGenerationTiming = cachedGeneration.generationTiming || {
+            source: "session-cache",
+            cached: true,
+            totalMs: Math.round(performance.now() - generationStartedAt),
+            completedAt: new Date().toISOString()
+          };
           setGenerationLoading(true, 68);
           await renderGeneratedVariants(cachedGeneration.imageUrls);
           logGenerationTiming("cached variants rendered", {
@@ -1717,7 +1728,8 @@
           setGenerationSessionCache(sessionCacheKey, {
             imageUrls: cachedGeneration.imageUrls,
             sourceImageDataUrl: sourceForProcessing,
-            sourceFileName
+            sourceFileName,
+            generationTiming: lastGenerationTiming
           });
           setGenerationLoading(true, 100);
           await sleep(Math.max(100, 250 - (Date.now() - loadingStartedAt)));
@@ -1756,10 +1768,20 @@
           throw new Error("No generated images were returned.");
         }
 
+        lastGenerationTiming = {
+          source: data.providerInput || "backend",
+          cached: Boolean(data.cached),
+          totalMs: Number(data.timings?.totalMs) || Math.round(performance.now() - generationStartedAt),
+          providerMs: Number(data.timings?.providerMs) || 0,
+          renderStartedAt: new Date().toISOString(),
+          serverTimings: data.timings || null
+        };
+
         setGenerationSessionCache(sessionCacheKey, {
           imageUrls,
           sourceImageDataUrl: sourceForProcessing,
-          sourceFileName
+          sourceFileName,
+          generationTiming: lastGenerationTiming
         });
 
         setGenerationLoading(true, 70);
@@ -1770,6 +1792,10 @@
         logGenerationTiming("variants rendered", {
           imageCount: imageUrls.length
         });
+        if (lastGenerationTiming) {
+          lastGenerationTiming.completedAt = new Date().toISOString();
+          lastGenerationTiming.clientTotalMs = Math.round(performance.now() - generationStartedAt);
+        }
         setGenerationLoading(true, 100);
         await sleep(Math.max(100, 250 - (Date.now() - loadingStartedAt)));
       } catch (err) {
@@ -1841,6 +1867,7 @@
           imageUrls: payload.imageUrls.slice(0, GENERATED_VARIANT_LIMIT),
           sourceImageDataUrl: payload.sourceImageDataUrl || "",
           sourceFileName: payload.sourceFileName || sourceFileName || "uploaded-image",
+          generationTiming: payload.generationTiming || null,
           savedAt: Date.now()
         };
         sessionStorage.setItem(`${GENERATION_SESSION_CACHE_PREFIX}${cacheKey}`, JSON.stringify(cached));
