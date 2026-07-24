@@ -48,6 +48,7 @@
     const GENERATION_SESSION_CACHE_PREFIX = "lineArtGenerationCache:";
     const GENERATION_LAST_SESSION_CACHE_KEY = "lineArtGenerationCache:last";
     const GENERATION_SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+    const GENERATED_VARIANT_LIMIT = 1;
     const LOADING_MESSAGE = "Generating preview...";
     const GENERATION_LOADING_TARGET = "#line-art-customizer-mount";
     const GENERATION_STATUS_MESSAGES = [
@@ -1053,13 +1054,14 @@
       const viewportWidth = Math.floor(viewport.width || window.innerWidth || 0);
       const shellWidth = Math.floor(shell.getBoundingClientRect().width || viewportWidth);
       const imageWidth = Math.floor(image.getBoundingClientRect().width || 0);
-      const maxStripWidth = Math.max(280, Math.min(shellWidth, viewportWidth - 32, 700));
+      const maxStripWidth = Math.max(220, Math.min(shellWidth - 16, viewportWidth - 48, 700));
+      const minStripWidth = Math.min(280, maxStripWidth);
       const smallImageMinimum = viewportWidth <= 600 ? 340 : 520;
       const comfortableMinimum = viewportWidth <= 600 ? 300 : 420;
       const targetWidth = imageWidth > 0 && imageWidth < comfortableMinimum
         ? smallImageMinimum
         : Math.max(comfortableMinimum, imageWidth);
-      const stripWidth = Math.max(280, Math.min(maxStripWidth, targetWidth));
+      const stripWidth = Math.max(minStripWidth, Math.min(maxStripWidth, targetWidth));
 
       shell.style.setProperty("--fullscreen-strip-width", `${stripWidth}px`);
     }
@@ -1832,7 +1834,7 @@
       try {
         const cached = {
           cacheKey,
-          imageUrls: payload.imageUrls.slice(0, 4),
+          imageUrls: payload.imageUrls.slice(0, GENERATED_VARIANT_LIMIT),
           sourceImageDataUrl: payload.sourceImageDataUrl || "",
           sourceFileName: payload.sourceFileName || sourceFileName || "uploaded-image",
           savedAt: Date.now()
@@ -1906,14 +1908,14 @@
           return image.url || image.image_url || image.data_url || "";
         })
         .filter(Boolean)
-        .slice(0, 4);
+        .slice(0, GENERATED_VARIANT_LIMIT);
     }
 
     async function renderGeneratedVariants(urls, variantNameOverrides, processingProfiles) {
       const container = document.getElementById("variants-container");
       container.innerHTML = "";
       generatedVariantPreviews = [];
-      generatedVariantSourceUrls = urls.slice(0, 4);
+      generatedVariantSourceUrls = urls.slice(0, GENERATED_VARIANT_LIMIT);
 
       const variantNames = variantNameOverrides || [
         "Style 1 (Bold)",
